@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Rocket Equation (SPA Demo)</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 0; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 16px; }
+    h1 { font-size: 18px; margin: 0 0 10px; }
+    .grid { display: grid; grid-template-columns: 360px 1fr; gap: 16px; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+    .card { border: 1px solid rgba(127,127,127,.35); border-radius: 12px; padding: 12px; }
+    .row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px dashed rgba(127,127,127,.25); }
+    .row:last-child { border-bottom: 0; }
+    label { font-size: 12px; opacity: .9; display: block; margin-bottom: 4px; }
+    input[type="range"] { width: 100%; }
+    input[type="number"] { width: 120px; padding: 6px 8px; border-radius: 8px; border: 1px solid rgba(127,127,127,.45); background: transparent; }
+    .big { font-size: 22px; font-weight: 700; }
+    .muted { opacity: .8; font-size: 12px; }
+    .pill { display: inline-block; padding: 2px 8px; border: 1px solid rgba(127,127,127,.45); border-radius: 999px; font-size: 12px; opacity: .9; }
+    canvas { width: 100%; height: 320px; border-radius: 12px; border: 1px solid rgba(127,127,127,.35); }
+    .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 900px) { .two { grid-template-columns: 1fr; } }
+    .kpi { display:flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 10px; border-radius: 12px; border: 1px solid rgba(127,127,127,.35); }
+    .kpi .val { font-weight: 800; font-size: 18px; }
+    .kpi .lbl { font-size: 12px; opacity:.85; }
+    .warn { color: #c33; }
+    .ok { color: #2a7; }
+    .tiny { font-size: 11px; opacity: .75; }
+    .bar { height: 12px; background: rgba(127,127,127,.18); border-radius: 999px; overflow: hidden; border: 1px solid rgba(127,127,127,.25); }
+    .bar > div { height: 100%; }
+    .legend { display:flex; flex-wrap:wrap; gap:10px; align-items:center; font-size: 12px; opacity: .9; margin-top: 8px; }
+    .sw { width: 10px; height: 10px; border-radius: 2px; display:inline-block; border: 1px solid rgba(0,0,0,.2); }
+    .btns { display:flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    button { padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(127,127,127,.45); background: transparent; cursor: pointer; }
+    button:hover { filter: brightness(1.05); }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Rocket Equation Demo (Single-Page App)</h1>
+    <div class="grid">
+      <div class="card" id="controls">
+        <div class="row">
+          <div>
+            <label>Specific impulse, Isp (s)</label>
+            <input id="ispRange" type="range" min="150" max="450" step="1" />
+          </div>
+          <input id="ispNum" type="number" min="1" step="1" />
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Standard gravity, g₀ (m/s²)</label>
+            <input id="g0Range" type="range" min="8" max="12" step="0.01" />
+          </div>
+          <input id="g0Num" type="number" step="0.01" />
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Dry mass, m<sub>dry</sub> (kg) — structure + engine + payload</label>
+            <input id="dryRange" type="range" min="50" max="20000" step="10" />
+          </div>
+          <input id="dryNum" type="number" min="1" step="1" />
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Propellant mass, m<sub>prop</sub> (kg)</label>
+            <input id="propRange" type="range" min="10" max="200000" step="50" />
+          </div>
+          <input id="propNum" type="number" min="0" step="1" />
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Plot: Δv vs propellant fraction (keep m<sub>dry</sub> fixed)</label>
+            <div class="muted">Fraction = m<sub>prop</sub> / (m<sub>dry</sub> + m<sub>prop</sub>)</div>
+          </div>
+          <span class="pill" id="fracPill">—</span>
+        </div>
+
+        <div class="btns">
+          <button id="presetKerolox">Preset: Kerolox (~330s)</button>
+          <button id="presetHydrolox">Preset: Hydrolox (~450s)</button>
+          <button id="presetSolid">Preset: Solid (~250s)</button>
+          <button id="reset">Reset</button>
+        </div>
+
+        <div style="margin-top:12px" class="tiny">
+          Equation: <code>Δv = Isp · g₀ · ln(m₀ / m<sub>f</sub>)</code><br/>
+          Here: <code>m₀ = m<sub>dry</sub> + m<sub>prop</sub></code>, <code>m<sub>f</sub> = m<sub>dry</sub></code>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="two">
+          <div class="kpi">
+            <div>
+              <div class="lbl">Δv</div>
+              <div class="val" id="dvVal">—</div>
+            </div>
+            <div class="pill" id="statusPill">—</div>
+          </div>
+          <div class="kpi">
+            <div>
+              <div class="lbl">Mass ratio (m₀/mf)</div>
+              <div class="val" id="mrVal">—</div>
+            </div>
+            <div class="pill" id="lnPill">—</div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px" class="two">
+          <div class="card" style="padding:10px">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px">
+              <div>
+                <div class="lbl">Mass breakdown</div>
+                <div class="muted">m₀ = dry + propellant</div>
+              </div>
+              <div class="pill" id="m0Pill">—</div>
+            </div>
+            <div style="margin-top:10px">
+              <div class="bar" title="Dry vs propellant (of total liftoff mass)">
+                <div id="barDry" style="width:50%; background: rgba(80,140,255,.7)"></div>
+                <div id="barProp" style="width:50%; background: rgba(255,160,80,.7)"></div>
+              </div>
+              <div class="legend">
+                <span><span class="sw" style="background: rgba(80,140,255,.7)"></span> dry</span>
+                <span><span class="sw" style="background: rgba(255,160,80,.7)"></span> prop</span>
+              </div>
+              <div class="tiny" id="massText" style="margin-top:6px"></div>
+            </div>
+          </div>
+
+          <div class="card" style="padding:10px">
+            <div class="lbl">Common targets (ballpark, idealized)</div>
+            <div class="muted">These are not guarantees; losses and staging change everything.</div>
+            <ul class="tiny" style="margin:8px 0 0 16px; line-height:1.5">
+              <li>Supersonic hop: ~1–2 km/s</li>
+              <li>Suborbital spaceflight: ~3–4 km/s</li>
+              <li>Low Earth orbit (incl. losses): ~9–10 km/s</li>
+              <li>Trans-lunar injection from LEO: +~3.2 km/s</li>
+            </ul>
+          </div>
+        </div>
+
+        <div style="margin-top:12px">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:10px">
+            <div>
+              <div class="lbl">Δv vs propellant fraction</div>
+              <div class="muted">Shows diminishing returns as propellant fraction approaches 1.</div>
+            </div>
+            <div class="pill" id="cursorPill">hover chart</div>
+          </div>
+          <canvas id="chart" width="1000" height="320"></canvas>
+          <div class="tiny" style="margin-top:8px">
+            Tip: drag the propellant slider and watch how the point moves along the curve.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --------- math ----------
+    function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
+    function fmt(n, d=0){
+      if (!isFinite(n)) return "—";
+      const abs = Math.abs(n);
+      if (abs >= 1e6) return (n/1e6).toFixed(d) + "M";
+      if (abs >= 1e3) return (n/1e3).toFixed(d) + "k";
+      return n.toFixed(d);
+    }
+    function dv(isp, g0, mdry, mprop){
+      const m0 = mdry + mprop;
+      const mf = mdry;
+      if (m0 <= 0 || mf <= 0 || m0 <= mf) return 0;
+      return isp * g0 * Math.log(m0 / mf);
+    }
+
+    // --------- state ----------
+    const state = {
+      isp: 320,
+      g0: 9.80665,
+      mdry: 5000,
+      mprop: 15000,
+      chartHover: null, // {xFrac, dv}
+    };
+
+    // --------- elements ----------
+    const el = {
+      ispRange: document.getElementById("ispRange"),
+      ispNum: document.getElementById("ispNum"),
+      g0Range: document.getElementById("g0Range"),
+      g0Num: document.getElementById("g0Num"),
+      dryRange: document.getElementById("dryRange"),
+      dryNum: document.getElementById("dryNum"),
+      propRange: document.getElementById("propRange"),
+      propNum: document.getElementById("propNum"),
+
+      fracPill: document.getElementById("fracPill"),
+      dvVal: document.getElementById("dvVal"),
+      mrVal: document.getElementById("mrVal"),
+      lnPill: document.getElementById("lnPill"),
+      statusPill: document.getElementById("statusPill"),
+      m0Pill: document.getElementById("m0Pill"),
+      massText: document.getElementById("massText"),
+      barDry: document.getElementById("barDry"),
+      barProp: document.getElementById("barProp"),
+      cursorPill: document.getElementById("cursorPill"),
+
+      chart: document.getElementById("chart"),
+
+      presetKerolox: document.getElementById("presetKerolox"),
+      presetHydrolox: document.getElementById("presetHydrolox"),
+      presetSolid: document.getElementById("presetSolid"),
+      reset: document.getElementById("reset"),
+    };
+
+    // --------- bindings ----------
+    function bind(rangeEl, numEl, key, transformIn = v=>v, transformOut=v=>v){
+      function setBoth(v){
+        state[key] = transformIn(+v);
+        rangeEl.value = transformOut(state[key]);
+        numEl.value = state[key];
+        render();
+      }
+      rangeEl.addEventListener("input", e => setBoth(e.target.value));
+      numEl.addEventListener("input", e => setBoth(e.target.value));
+    }
+
+    // Initialize sliders to state
+    el.ispRange.value = state.isp; el.ispNum.value = state.isp;
+    el.g0Range.value = state.g0;   el.g0Num.value  = state.g0;
+    el.dryRange.value = state.mdry; el.dryNum.value = state.mdry;
+    el.propRange.value = state.mprop; el.propNum.value = state.mprop;
+
+    bind(el.ispRange, el.ispNum, "isp");
+    bind(el.g0Range, el.g0Num, "g0");
+    bind(el.dryRange, el.dryNum, "mdry");
+    bind(el.propRange, el.propNum, "mprop", v => Math.max(0, v));
+
+    // Presets
+    el.presetKerolox.addEventListener("click", () => { state.isp = 330; sync(); });
+    el.presetHydrolox.addEventListener("click", () => { state.isp = 450; sync(); });
+    el.presetSolid.addEventListener("click", () => { state.isp = 250; sync(); });
+    el.reset.addEventListener("click", () => {
+      state.isp = 320; state.g0 = 9.80665; state.mdry = 5000; state.mprop = 15000;
+      sync();
+    });
+
+    function sync(){
+      el.ispRange.value = state.isp; el.ispNum.value = state.isp;
+      el.g0Range.value = state.g0;   el.g0Num.value  = state.g0;
+      el.dryRange.value = state.mdry; el.dryNum.value = state.mdry;
+      el.propRange.value = state.mprop; el.propNum.value = state.mprop;
+      render();
+    }
+
+    // --------- chart ----------
+    const ctx = el.chart.getContext("2d");
+
+    function drawChart(){
+      const W = el.chart.width, H = el.chart.height;
+      ctx.clearRect(0,0,W,H);
+
+      // chart area padding
+      const padL = 52, padR = 18, padT = 12, padB = 34;
+      const x0 = padL, y0 = padT, x1 = W - padR, y1 = H - padB;
+      const cw = x1 - x0, ch = y1 - y0;
+
+      // background
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "rgba(127,127,127,0.08)";
+      ctx.fillRect(x0, y0, cw, ch);
+
+      // Compute curve points (fraction 0..0.95)
+      const N = 180;
+      const fracs = [];
+      let dvMax = 0;
+      for (let i=0;i<=N;i++){
+        const f = i/N * 0.95; // avoid infinity at 1
+        const mprop = (f * state.mdry) / (1 - f); // from f = mprop/(mdry+mprop)
+        const d = dv(state.isp, state.g0, state.mdry, mprop);
+        fracs.push({f, d});
+        dvMax = Math.max(dvMax, d);
+      }
+      dvMax = Math.max(dvMax, dv(state.isp, state.g0, state.mdry, state.mprop)) * 1.05;
+
+      // axes helpers
+      function X(f){ return x0 + f/0.95 * cw; }
+      function Y(d){ return y1 - (d/dvMax) * ch; }
+
+      // grid
+      ctx.strokeStyle = "rgba(127,127,127,0.25)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      const gx = 6, gy = 5;
+      for (let i=0;i<=gx;i++){
+        const xx = x0 + (i/gx)*cw;
+        ctx.moveTo(xx, y0); ctx.lineTo(xx, y1);
+      }
+      for (let j=0;j<=gy;j++){
+        const yy = y0 + (j/gy)*ch;
+        ctx.moveTo(x0, yy); ctx.lineTo(x1, yy);
+      }
+      ctx.stroke();
+
+      // labels
+      ctx.fillStyle = "rgba(127,127,127,0.9)";
+      ctx.font = "12px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("propellant fraction", x0 + cw/2, H - 10);
+
+      ctx.save();
+      ctx.translate(14, y0 + ch/2);
+      ctx.rotate(-Math.PI/2);
+      ctx.textAlign = "center";
+      ctx.fillText("Δv (m/s)", 0, 0);
+      ctx.restore();
+
+      // y ticks
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      for (let j=0;j<=gy;j++){
+        const d = (1 - j/gy) * dvMax;
+        const yy = y0 + (j/gy)*ch;
+        ctx.fillText(fmt(d,0), x0 - 8, yy);
+      }
+      // x ticks
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      for (let i=0;i<=gx;i++){
+        const f = (i/gx) * 0.95;
+        const xx = x0 + (i/gx)*cw;
+        ctx.fillText(f.toFixed(2), xx, y1 + 6);
+      }
+
+      // curve
+      ctx.strokeStyle = "rgba(80,140,255,0.95)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let i=0;i<fracs.length;i++){
+        const p = fracs[i];
+        const xx = X(p.f), yy = Y(p.d);
+        if (i === 0) ctx.moveTo(xx, yy);
+        else ctx.lineTo(xx, yy);
+      }
+      ctx.stroke();
+
+      // current point from sliders
+      const m0 = state.mdry + state.mprop;
+      const frac = (m0 > 0) ? state.mprop / m0 : 0;
+      const curDv = dv(state.isp, state.g0, state.mdry, state.mprop);
+
+      const px = X(clamp(frac, 0, 0.95));
+      const py = Y(curDv);
+
+      // point
+      ctx.fillStyle = "rgba(255,160,80,0.95)";
+      ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI*2); ctx.fill();
+
+      // hover/cursor readout (optional)
+      if (state.chartHover){
+        const hx = X(state.chartHover.xFrac);
+        const hy = Y(state.chartHover.dv);
+        ctx.strokeStyle = "rgba(255,255,255,0.55)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(hx, y0); ctx.lineTo(hx, y1);
+        ctx.moveTo(x0, hy); ctx.lineTo(x1, hy);
+        ctx.stroke();
+
+        ctx.fillStyle = "rgba(255,255,255,0.9)";
+        ctx.beginPath(); ctx.arc(hx, hy, 4, 0, Math.PI*2); ctx.fill();
+      }
+    }
+
+    function canvasToFrac(clientX){
+      const rect = el.chart.getBoundingClientRect();
+      const x = (clientX - rect.left) * (el.chart.width / rect.width);
+      const padL = 52, padR = 18;
+      const x0 = padL, x1 = el.chart.width - padR;
+      const f = (x - x0) / (x1 - x0) * 0.95;
+      return clamp(f, 0, 0.95);
+    }
+
+    el.chart.addEventListener("mousemove", (e) => {
+      const f = canvasToFrac(e.clientX);
+      const mprop = (f * state.mdry) / (1 - f);
+      const d = dv(state.isp, state.g0, state.mdry, mprop);
+      state.chartHover = { xFrac: f, dv: d };
+      el.cursorPill.textContent = `f=${f.toFixed(3)}  Δv=${fmt(d,0)} m/s`;
+      drawChart();
+    });
+    el.chart.addEventListener("mouseleave", () => {
+      state.chartHover = null;
+      el.cursorPill.textContent = "hover chart";
+      drawChart();
+    });
+
+    // --------- render ----------
+    function render(){
+      const m0 = state.mdry + state.mprop;
+      const mf = state.mdry;
+      const mr = (mf > 0) ? (m0 / mf) : NaN;
+      const ln = (mr > 0) ? Math.log(mr) : NaN;
+      const d = dv(state.isp, state.g0, state.mdry, state.mprop);
+      const frac = (m0 > 0) ? (state.mprop / m0) : 0;
+
+      el.fracPill.textContent = `fraction ${frac.toFixed(3)}`;
+      el.dvVal.textContent = `${fmt(d,0)} m/s`;
+      el.mrVal.textContent = isFinite(mr) ? mr.toFixed(3) : "—";
+      el.lnPill.textContent = isFinite(ln) ? `ln(m₀/mf) = ${ln.toFixed(3)}` : "—";
+      el.m0Pill.textContent = `m₀ = ${fmt(m0,0)} kg`;
+
+      // mass bar
+      const dryPct = (m0 > 0) ? (state.mdry / m0) : 0;
+      const propPct = (m0 > 0) ? (state.mprop / m0) : 0;
+      el.barDry.style.width = `${(dryPct*100).toFixed(2)}%`;
+      el.barProp.style.width = `${(propPct*100).toFixed(2)}%`;
+      el.massText.textContent =
+        `dry ${fmt(state.mdry,0)} kg (${(dryPct*100).toFixed(1)}%), ` +
+        `prop ${fmt(state.mprop,0)} kg (${(propPct*100).toFixed(1)}%)`;
+
+      // status pill (very rough)
+      const kmps = d / 1000;
+      let status = "low";
+      if (kmps >= 9) status = "LEO-ish";
+      else if (kmps >= 4) status = "suborbital-ish";
+      else if (kmps >= 2) status = "supersonic-ish";
+      el.statusPill.textContent = status;
+      el.statusPill.className = "pill " + (kmps >= 4 ? "ok" : "");
+
+      drawChart();
+    }
+
+    render();
+  </script>
+</body>
+</html>

@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bytebeat Player</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Courier New', monospace;
+    background: #0a0a0f;
+    color: #e0e0e0;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+  }
+
+  .container { width: 100%; max-width: 720px; }
+
+  h1 {
+    font-size: 1.4rem;
+    margin-bottom: 20px;
+    color: #00ff88;
+    text-shadow: 0 0 10px rgba(0,255,136,0.3);
+  }
+  h1 span { color: #555; font-weight: normal; }
+
+  .editor {
+    width: 100%;
+    height: 80px;
+    background: #12121a;
+    border: 1px solid #2a2a3a;
+    border-radius: 6px;
+    color: #ff9944;
+    font-family: 'Courier New', monospace;
+    font-size: 1.1rem;
+    padding: 12px;
+    resize: vertical;
+    outline: none;
+    tab-size: 2;
+  }
+  .editor:focus {
+    border-color: #00ff88;
+    box-shadow: 0 0 8px rgba(0,255,136,0.15);
+  }
+
+  .error {
+    color: #ff4444;
+    font-size: 0.8rem;
+    min-height: 1.2em;
+    margin-top: 4px;
+  }
+
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 12px 0;
+    flex-wrap: wrap;
+  }
+
+  button {
+    background: #1a1a2e;
+    border: 1px solid #2a2a3a;
+    color: #e0e0e0;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.9rem;
+    transition: all 0.15s;
+  }
+  button:hover { border-color: #00ff88; color: #00ff88; }
+  button.active { background: #00ff88; color: #0a0a0f; border-color: #00ff88; }
+
+  .counter {
+    margin-left: auto;
+    font-size: 0.85rem;
+    color: #666;
+  }
+  .counter span { color: #00ff88; }
+
+  .params {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 10px 0;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+    color: #888;
+  }
+  .param-group { display: flex; align-items: center; gap: 6px; }
+
+  select {
+    background: #12121a;
+    border: 1px solid #2a2a3a;
+    color: #e0e0e0;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    outline: none;
+  }
+  select:focus { border-color: #00ff88; }
+
+  input[type="range"] {
+    width: 80px;
+    accent-color: #00ff88;
+    vertical-align: middle;
+  }
+
+  canvas {
+    width: 100%;
+    height: 160px;
+    background: #0d0d14;
+    border: 1px solid #1a1a2a;
+    border-radius: 6px;
+    margin: 14px 0;
+    display: block;
+  }
+
+  .presets {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .presets-label { color: #444; font-size: 0.8rem; padding-right: 2px; }
+  .preset-btn {
+    font-size: 0.78rem;
+    padding: 4px 10px;
+    background: #0d0d14;
+    border-color: #1a1a2a;
+    color: #777;
+  }
+
+  .hint {
+    margin-top: 14px;
+    font-size: 0.75rem;
+    color: #333;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>&#9835; BYTEBEAT <span>player</span></h1>
+
+  <textarea class="editor" id="editor" spellcheck="false">t*"CKTdpdTK".charCodeAt(t>>12&7)>>5</textarea>
+  <div class="error" id="error"></div>
+
+  <div class="controls">
+    <button id="playBtn">&#9654; Play</button>
+    <button id="resetBtn">&#8634; Reset</button>
+    <div class="counter">t&nbsp;=&nbsp;<span id="tDisplay">0</span></div>
+  </div>
+
+  <div class="params">
+    <div class="param-group">
+      <label for="sampleRate">Rate</label>
+      <select id="sampleRate">
+        <option value="8000" selected>8000 Hz</option>
+        <option value="11025">11025 Hz</option>
+        <option value="22050">22050 Hz</option>
+        <option value="44100">44100 Hz</option>
+      </select>
+    </div>
+    <div class="param-group">
+      <label for="mode">Mode</label>
+      <select id="mode">
+        <option value="byte" selected>Bytebeat</option>
+        <option value="float">Floatbeat</option>
+      </select>
+    </div>
+    <div class="param-group">
+      <label for="volume">Vol</label>
+      <input type="range" id="volume" min="0" max="100" value="50">
+    </div>
+  </div>
+
+  <div class="params">
+    <div class="param-group">
+      <label for="delay">Delay</label>
+      <input type="range" id="delay" min="0" max="100" value="0">
+    </div>
+    <div class="param-group">
+      <label for="reverb">Reverb</label>
+      <input type="range" id="reverb" min="0" max="100" value="0">
+    </div>
+  </div>
+
+  <canvas id="scope"></canvas>
+
+  <div class="presets">
+    <span class="presets-label">Presets:</span>
+  </div>
+
+  <div class="hint">Ctrl+Enter to play/stop &middot; edits apply live</div>
+</div>
+
+<script>
+const PRESETS = [
+  { name: 'Walking Bass',  code: 't*"CKTdpdTK".charCodeAt(t>>12&7)>>5' },
+  { name: 'Classic',       code: 't*((t>>12|t>>8)&63&t>>4)' },
+  { name: '42 Melody',     code: 't*(42&t>>10)' },
+  { name: 'Sierpinski',    code: 't&t>>8' },
+  { name: 'Crowd',         code: '(t>>6|t|t>>(t>>16))*10+((t>>11)&7)' },
+  { name: 'Techno',        code: 't*(t>>8*((t>>15)|(t>>8))&(20|(t>>19)*5>>t|(t>>3)))' },
+];
+
+// --- DOM refs ---
+const editorEl    = document.getElementById('editor');
+const errorEl     = document.getElementById('error');
+const playBtn     = document.getElementById('playBtn');
+const resetBtn    = document.getElementById('resetBtn');
+const tDisplay    = document.getElementById('tDisplay');
+const rateSelect  = document.getElementById('sampleRate');
+const modeSelect  = document.getElementById('mode');
+const volumeEl    = document.getElementById('volume');
+const delayEl     = document.getElementById('delay');
+const reverbEl    = document.getElementById('reverb');
+const canvas      = document.getElementById('scope');
+const ctx         = canvas.getContext('2d');
+const presetsDiv  = document.querySelector('.presets');
+
+// --- Build preset buttons ---
+PRESETS.forEach((p, i) => {
+  const btn = document.createElement('button');
+  btn.className = 'preset-btn';
+  btn.textContent = p.name;
+  btn.addEventListener('click', () => loadPreset(i));
+  presetsDiv.appendChild(btn);
+});
+
+// --- Audio state ---
+let audioCtx   = null;
+let scriptNode = null;
+let gainNode   = null;
+let delayNode  = null;
+let delayGain  = null;
+let reverbNode = null;
+let reverbGain = null;
+let dryGain    = null;
+let playing    = false;
+let tCounter   = 0;    // floating-point accumulator for precise resampling
+let compiledFn = null;
+let animId     = null;
+const scopeBuf = new Float32Array(2048);
+
+// --- Compile formula ---
+function compile(code) {
+  try {
+    const fn = new Function('t', 'return ' + code);
+    fn(0); // smoke test
+    errorEl.textContent = '';
+    return fn;
+  } catch (e) {
+    errorEl.textContent = e.message;
+    return null;
+  }
+}
+
+// --- Generate impulse response for reverb ---
+function createImpulseResponse(ctx, channels, duration, decay) {
+  const length = ctx.sampleRate * duration;
+  const buffer = ctx.createBuffer(channels, length, ctx.sampleRate);
+  for (let ch = 0; ch < channels; ch++) {
+    const data = buffer.getChannelData(ch);
+    for (let i = 0; i < length; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
+    }
+  }
+  return buffer;
+}
+
+// --- Playback ---
+function play() {
+  const fn = compile(editorEl.value);
+  if (!fn) return;
+  compiledFn = fn;
+
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const nativeRate = audioCtx.sampleRate;
+  const byteRate   = parseInt(rateSelect.value);
+  const bufSize    = 4096;
+
+  scriptNode = audioCtx.createScriptProcessor(bufSize, 0, 1);
+  gainNode   = audioCtx.createGain();
+  gainNode.gain.value = volumeEl.value / 100;
+
+  scriptNode.onaudioprocess = function(e) {
+    const out   = e.outputBuffer.getChannelData(0);
+    const ratio = byteRate / nativeRate;
+    const isFloat = modeSelect.value === 'float';
+    const fn = compiledFn;
+
+    for (let i = 0; i < out.length; i++) {
+      const sampleT = Math.floor(tCounter);
+      let v;
+      try { v = fn(sampleT); } catch { v = 0; }
+
+      if (isFloat) {
+        v = Math.max(-1, Math.min(1, +v || 0));
+      } else {
+        v = ((v & 255) - 128) / 128;
+      }
+      out[i] = v;
+      tCounter += ratio;
+    }
+
+    // Copy tail for oscilloscope
+    const copyStart = Math.max(0, out.length - scopeBuf.length);
+    scopeBuf.set(out.subarray(copyStart, copyStart + scopeBuf.length));
+  };
+
+  // Delay effect (feedback delay)
+  delayNode = audioCtx.createDelay(1.0);
+  delayNode.delayTime.value = 0.3;
+  delayGain = audioCtx.createGain();
+  const delayAmt = delayEl.value / 100;
+  delayGain.gain.value = delayAmt * 0.6;
+
+  // Reverb effect (convolver with generated impulse response)
+  reverbNode = audioCtx.createConvolver();
+  reverbNode.buffer = createImpulseResponse(audioCtx, 2, 2.0, 2.0);
+  reverbGain = audioCtx.createGain();
+  dryGain = audioCtx.createGain();
+  const reverbAmt = reverbEl.value / 100;
+  reverbGain.gain.value = reverbAmt;
+  dryGain.gain.value = 1;
+
+  // Routing: script -> gain -> dry + delay + reverb -> destination
+  scriptNode.connect(gainNode);
+
+  // Dry path
+  gainNode.connect(dryGain);
+  dryGain.connect(audioCtx.destination);
+
+  // Delay path (with feedback loop)
+  gainNode.connect(delayNode);
+  delayNode.connect(delayGain);
+  delayGain.connect(audioCtx.destination);
+  delayGain.connect(delayNode); // feedback
+
+  // Reverb path
+  gainNode.connect(reverbNode);
+  reverbNode.connect(reverbGain);
+  reverbGain.connect(audioCtx.destination);
+
+  playing = true;
+  playBtn.textContent = '\u23F9 Stop';
+  playBtn.classList.add('active');
+  drawScope();
+}
+
+function stop() {
+  if (scriptNode) { scriptNode.disconnect(); scriptNode = null; }
+  if (gainNode)   { gainNode.disconnect(); gainNode = null; }
+  if (delayNode)  { delayNode.disconnect(); delayNode = null; }
+  if (delayGain)  { delayGain.disconnect(); delayGain = null; }
+  if (reverbNode) { reverbNode.disconnect(); reverbNode = null; }
+  if (reverbGain) { reverbGain.disconnect(); reverbGain = null; }
+  if (dryGain)    { dryGain.disconnect(); dryGain = null; }
+  if (audioCtx)   { audioCtx.close(); audioCtx = null; }
+  if (animId)     { cancelAnimationFrame(animId); animId = null; }
+  playing = false;
+  playBtn.textContent = '\u25B6 Play';
+  playBtn.classList.remove('active');
+}
+
+function togglePlay() { playing ? stop() : play(); }
+
+function resetTime() {
+  tCounter = 0;
+  tDisplay.textContent = '0';
+}
+
+function loadPreset(i) {
+  editorEl.value = PRESETS[i].code;
+  errorEl.textContent = '';
+  if (playing) {
+    const fn = compile(editorEl.value);
+    if (fn) compiledFn = fn;
+    tCounter = 0;
+  }
+}
+
+// --- Live edit ---
+editorEl.addEventListener('input', () => {
+  const fn = compile(editorEl.value);
+  if (fn && playing) compiledFn = fn;
+});
+
+// --- Volume ---
+volumeEl.addEventListener('input', () => {
+  if (gainNode) gainNode.gain.value = volumeEl.value / 100;
+});
+
+// --- Delay / Reverb live update ---
+delayEl.addEventListener('input', () => {
+  if (delayGain) delayGain.gain.value = (delayEl.value / 100) * 0.6;
+});
+reverbEl.addEventListener('input', () => {
+  if (reverbGain) reverbGain.gain.value = reverbEl.value / 100;
+});
+
+// --- Rate / mode change while playing ---
+rateSelect.addEventListener('change', () => { if (playing) { stop(); play(); } });
+modeSelect.addEventListener('change', () => { if (playing) { stop(); play(); } });
+
+// --- Keyboard shortcut ---
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); togglePlay(); }
+});
+
+// --- Events ---
+playBtn.addEventListener('click', togglePlay);
+resetBtn.addEventListener('click', resetTime);
+
+// --- Oscilloscope ---
+function drawScope() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  canvas.width  = w * dpr;
+  canvas.height = h * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  // Background
+  ctx.fillStyle = '#0d0d14';
+  ctx.fillRect(0, 0, w, h);
+
+  // Center line
+  ctx.strokeStyle = '#1a1a2a';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, h / 2);
+  ctx.lineTo(w, h / 2);
+  ctx.stroke();
+
+  // Waveform
+  ctx.strokeStyle = '#00ff88';
+  ctx.lineWidth = 1.5;
+  ctx.shadowColor = '#00ff88';
+  ctx.shadowBlur = 6;
+  ctx.beginPath();
+
+  const step = scopeBuf.length / w;
+  for (let i = 0; i < w; i++) {
+    const val = scopeBuf[Math.floor(i * step)] || 0;
+    const y = (1 - val) / 2 * h;
+    i === 0 ? ctx.moveTo(i, y) : ctx.lineTo(i, y);
+  }
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Update counter
+  tDisplay.textContent = Math.floor(tCounter).toLocaleString();
+
+  if (playing) animId = requestAnimationFrame(drawScope);
+}
+
+// Initial empty scope draw
+requestAnimationFrame(() => drawScope());
+</script>
+</body>
+</html>

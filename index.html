@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kyle Reed</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 4rem 1.5rem;
+    }
+    h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+    .subtitle {
+      color: #94a3b8;
+      font-size: 1rem;
+      margin-bottom: 2.5rem;
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      width: 100%;
+      max-width: 960px;
+    }
+    @media (max-width: 900px) { .cards { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 660px) { .cards { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 440px) { .cards { grid-template-columns: 1fr; } }
+    a.card {
+      display: flex;
+      flex-direction: column;
+      aspect-ratio: 3 / 4;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 0.75rem;
+      padding: 1.25rem 1.25rem;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color 0.2s, transform 0.15s;
+    }
+    a.card:hover {
+      border-color: #60a5fa;
+      transform: translateY(-2px);
+    }
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #f1f5f9;
+      margin-bottom: 0.35rem;
+    }
+    .card-desc {
+      font-size: 0.9rem;
+      color: #94a3b8;
+      line-height: 1.45;
+    }
+  </style>
+</head>
+<body>
+  <h1>Kyle Reed</h1>
+  <p class="subtitle">Experiments &amp; side projects</p>
+
+  <div class="cards">
+    <a class="card" href="swords/balatro-swords.html">
+      <div class="card-title">Beginners with Swords — Deck Builder</div>
+      <div class="card-desc">A roguelike deck-builder dojo. Play poker hands with sword cards to power up your teacher, then survive dodging sword-swinging students.</div>
+    </a>
+
+    <a class="card" href="swords/beginners-with-swords.html">
+      <div class="card-title">Beginners with Swords — Arcade</div>
+      <div class="card-desc">Survive the dojo! A fast-paced canvas arcade game where you dodge increasingly chaotic sword-wielding beginners.</div>
+    </a>
+
+    <a class="card" href="rocket/rocket.html">
+      <div class="card-title">Rocket Equation Explorer</div>
+      <div class="card-desc">Interactive Tsiolkovsky rocket equation calculator. Tweak mass, ISP, and staging to visualize delta-v and payload fractions.</div>
+    </a>
+
+    <a class="card" href="bytebeat/bytebeat.html">
+      <div class="card-title">Bytebeat Player</div>
+      <div class="card-desc">Write tiny math expressions that generate music. A live bytebeat synthesizer with waveform visualization.</div>
+    </a>
+
+    <a class="card" href="utf8-explorer/utf8-breakdown.html">
+      <div class="card-title">UTF-8 Hex Bit Breakdown</div>
+      <div class="card-desc">Paste text or hex bytes and see exactly how UTF-8 encodes each character — control bits, payload bits, and codepoints.</div>
+    </a>
+
+    <a class="card" href="glyph-explorer/glyph_explore.html">
+      <div class="card-title">OLED Font Glyph Explorer</div>
+      <div class="card-desc">Design and inspect glyphs for SSD1306-style OLED displays. Edit pixels on a grid and get column-major byte output.</div>
+    </a>
+
+    <a class="card" href="tri_area/area-explorer.html">
+      <div class="card-title">Regular Polygon: Area vs Perimeter</div>
+      <div class="card-desc">Interactive explorer showing how a regular polygon's perimeter changes with number of sides while keeping area fixed at 1 unit².</div>
+    </a>
+
+    <!-- TEMPLATE: Copy this block to add a new card
+    <a class="card" href="FOLDER/FILE.html">
+      <div class="card-title">TITLE</div>
+      <div class="card-desc">SHORT DESCRIPTION</div>
+    </a>
+    -->
+  </div>
+</body>
+</html>

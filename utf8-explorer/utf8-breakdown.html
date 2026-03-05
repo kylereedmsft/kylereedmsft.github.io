@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>UTF-8 Hex Bit Breakdown</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 16px; }
+    h1 { font-size: 18px; margin: 0 0 10px; }
+    .row { display: grid; grid-template-columns: 1fr; gap: 12px; max-width: 1100px; }
+    textarea, input { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+    textarea { width: 100%; min-height: 110px; padding: 10px; border-radius: 10px; border: 1px solid #6666; }
+    .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    button { padding: 8px 12px; border-radius: 10px; border: 1px solid #6666; background: transparent; cursor: pointer; }
+    button:hover { border-color: #9999; }
+    .note { font-size: 12px; opacity: 0.8; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 8px 10px; border-bottom: 1px solid #6663; vertical-align: top; }
+    th { text-align: left; position: sticky; top: 0; background: Canvas; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+    .bits { letter-spacing: 1px; white-space: nowrap; }
+    .ctl { background: rgba(255, 170, 0, 0.18); border-radius: 6px; padding: 1px 2px; }
+    .pay { background: rgba(80, 160, 255, 0.18); border-radius: 6px; padding: 1px 2px; }
+    .bad { background: rgba(255, 80, 80, 0.20); border-radius: 6px; padding: 1px 2px; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; border: 1px solid #6666; font-size: 12px; }
+    .err { color: #ff4d4d; }
+    .ok  { color: #42c27a; }
+    .seq { border-left: 3px solid #6666; padding-left: 8px; }
+    .small { font-size: 12px; opacity: 0.9; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <h1>UTF-8 hex bit breakdown</h1>
+
+  <div class="row">
+    <div class="grid2">
+      <div>
+        <textarea id="hexInput" spellcheck="false" placeholder="Paste bytes as hex: e.g. F0 9F 92 A9  or 0xF0,0x9F,0x92,0xA9  or f09f92a9"></textarea>
+        <div class="controls">
+          <button id="analyzeBtn">Analyze</button>
+          <button id="demoBtn">Demo</button>
+          <label class="note"><input type="checkbox" id="groupSeq" checked /> Group into UTF-8 sequences</label>
+        </div>
+        <div class="note">
+          Control bits = UTF-8 prefix markers (<span class="ctl mono">0 / 110 / 1110 / 11110 / 10</span>)<br/>
+          Payload bits = code point bits carried by the sequence (<span class="pay mono">xxxx…</span>)
+        </div>
+      </div>
+
+      <div>
+        <div class="mono small">
+          <div><span class="pill">Accepted input</span> Space/comma separated hex, optional 0x, or a continuous hex string.</div>
+          <div style="margin-top:8px;">
+            <div><span class="pill">Legend</span></div>
+            <div style="margin-top:6px;">
+              <span class="ctl">control</span> <span class="pay">payload</span> <span class="bad">invalid</span>
+            </div>
+          </div>
+          <div style="margin-top:10px;" id="summary"></div>
+          <div style="margin-top:10px;" id="errors"></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="overflow:auto; border:1px solid #6663; border-radius:12px;">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Hex</th>
+            <th>Bits</th>
+            <th>Role</th>
+            <th>Payload bits</th>
+            <th>Sequence / Code point</th>
+          </tr>
+        </thead>
+        <tbody id="out"></tbody>
+      </table>
+    </div>
+  </div>
+
+<script>
+(function () {
+  const hexInput = document.getElementById('hexInput');
+  const out = document.getElementById('out');
+  const errorsEl = document.getElementById('errors');
+  const summaryEl = document.getElementById('summary');
+  const groupSeq = document.getElementById('groupSeq');
+
+  document.getElementById('analyzeBtn').addEventListener('click', () => analyze());
+  document.getElementById('demoBtn').addEventListener('click', () => {
+    hexInput.value = "24 C2 A2 E2 82 AC F0 9F 92 A9 41";
+    analyze();
+  });
+
+  function parseHexBytes(s) {
+    s = (s || "").trim();
+    if (!s) return [];
+
+    // If it's a continuous hex string (possibly with spaces removed), treat pairs as bytes.
+    const stripped = s.replace(/[\s,;:_-]/g, '').replace(/0x/gi, '');
+    const looksContinuous = /^[0-9a-fA-F]+$/.test(stripped) && stripped.length >= 2 && (stripped.length % 2 === 0);
+
+    if (looksContinuous && !/[,\s;]/.test(s)) {
+      const bytes = [];
+      for (let i = 0; i < stripped.length; i += 2) {
+        bytes.push(parseInt(stripped.slice(i, i + 2), 16));
+      }
+      return bytes;
+    }
+
+    // Tokenize by separators; each token may be 1-2 hex bytes or longer (then split into pairs).
+    const tokens = s.split(/[\s,;]+/).filter(Boolean);
+    const bytes = [];
+    for (const tok0 of tokens) {
+      const tok = tok0.replace(/^0x/i, '');
+      if (!/^[0-9a-fA-F]+$/.test(tok)) throw new Error(`Invalid token: "${tok0}"`);
+      if (tok.length === 1) bytes.push(parseInt(tok, 16));
+      else if (tok.length === 2) bytes.push(parseInt(tok, 16));
+      else {
+        if (tok.length % 2 !== 0) throw new Error(`Odd-length hex token: "${tok0}"`);
+        for (let i = 0; i < tok.length; i += 2) bytes.push(parseInt(tok.slice(i, i + 2), 16));
+      }
+    }
+    return bytes;
+  }
+
+  function toBin8(b) {
+    return b.toString(2).padStart(8, '0');
+  }
+
+  function classifyLead(b) {
+    // Returns {len, ctlBits, payloadBits, roleLabel, valid}
+    const bin = toBin8(b);
+    if ((b & 0x80) === 0x00) { // 0xxxxxxx
+      return { len: 1, ctlBits: "0", payloadBits: bin.slice(1), roleLabel: "ASCII (1-byte)", valid: true };
+    }
+    if ((b & 0xE0) === 0xC0) { // 110xxxxx
+      return { len: 2, ctlBits: "110", payloadBits: bin.slice(3), roleLabel: "Lead (2-byte)", valid: true };
+    }
+    if ((b & 0xF0) === 0xE0) { // 1110xxxx
+      return { len: 3, ctlBits: "1110", payloadBits: bin.slice(4), roleLabel: "Lead (3-byte)", valid: true };
+    }
+    if ((b & 0xF8) === 0xF0) { // 11110xxx
+      return { len: 4, ctlBits: "11110", payloadBits: bin.slice(5), roleLabel: "Lead (4-byte)", valid: true };
+    }
+    // 10xxxxxx is continuation; other patterns invalid as lead
+    if ((b & 0xC0) === 0x80) {
+      return { len: 0, ctlBits: "10", payloadBits: bin.slice(2), roleLabel: "Continuation (unexpected lead)", valid: false };
+    }
+    return { len: 0, ctlBits: "", payloadBits: "", roleLabel: "Invalid", valid: false };
+  }
+
+  function classifyCont(b) {
+    const bin = toBin8(b);
+    const isCont = ((b & 0xC0) === 0x80); // 10xxxxxx
+    return {
+      ctlBits: isCont ? "10" : "",
+      payloadBits: isCont ? bin.slice(2) : "",
+      valid: isCont
+    };
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+
+  function renderBits(bin, ctlLen, badCtl = false) {
+    // ctlLen: number of control bits at start of byte
+    const ctl = bin.slice(0, ctlLen);
+    const pay = bin.slice(ctlLen);
+    const ctlClass = badCtl ? "bad" : "ctl";
+    return `<span class="bits mono"><span class="${ctlClass}">${ctl}</span><span class="pay">${pay}</span></span>`;
+  }
+
+  function codePointToChar(cp) {
+    try {
+      // Avoid generating lone surrogate chars via fromCodePoint; it'll throw if invalid.
+      return String.fromCodePoint(cp);
+    } catch {
+      return " ";
+    }
+  }
+
+  function hex2(b) {
+    return b.toString(16).toUpperCase().padStart(2, '0');
+  }
+
+  function analyze() {
+    out.innerHTML = "";
+    errorsEl.innerHTML = "";
+    summaryEl.innerHTML = "";
+
+    let bytes;
+    try {
+      bytes = parseHexBytes(hexInput.value);
+    } catch (e) {
+      errorsEl.innerHTML = `<div class="err">Parse error: ${escapeHtml(e.message || String(e))}</div>`;
+      return;
+    }
+
+    if (bytes.length === 0) return;
+
+    const errs = [];
+    const rows = [];
+
+    // If not grouping, just show per-byte prefix/payload bits.
+    if (!groupSeq.checked) {
+      bytes.forEach((b, i) => {
+        const lead = classifyLead(b);
+        let bitsHtml, payloadBits, role;
+        if (lead.len === 1 && lead.valid) {
+          bitsHtml = renderBits(toBin8(b), 1, false);
+          payloadBits = lead.payloadBits;
+          role = lead.roleLabel;
+        } else if ((b & 0xC0) === 0x80) {
+          const c = classifyCont(b);
+          bitsHtml = renderBits(toBin8(b), 2, false);
+          payloadBits = c.payloadBits;
+          role = "Continuation";
+        } else if (lead.valid) {
+          bitsHtml = renderBits(toBin8(b), lead.ctlBits.length, false);
+          payloadBits = lead.payloadBits;
+          role = lead.roleLabel;
+        } else {
+          bitsHtml = `<span class="bits mono"><span class="bad">${toBin8(b)}</span></span>`;
+          payloadBits = "";
+          role = "Invalid";
+        }
+
+        rows.push({
+          idx: i,
+          hex: hex2(b),
+          bitsHtml,
+          role,
+          payloadBits,
+          seqInfo: ""
+        });
+      });
+
+      render(rows, errs, { bytes, sequences: 0 });
+      return;
+    }
+
+    // Group into UTF-8 sequences.
+    let i = 0;
+    let seqCount = 0;
+    while (i < bytes.length) {
+      const b0 = bytes[i];
+      const lead = classifyLead(b0);
+
+      // Handle unexpected continuation or invalid lead.
+      if (!lead.valid || lead.len === 0) {
+        const bin = toBin8(b0);
+        const isCont = ((b0 & 0xC0) === 0x80);
+        const bitsHtml = isCont ? renderBits(bin, 2, true) : `<span class="bits mono"><span class="bad">${bin}</span></span>`;
+        rows.push({
+          idx: i,
+          hex: hex2(b0),
+          bitsHtml,
+          role: lead.roleLabel,
+          payloadBits: isCont ? bin.slice(2) : "",
+          seqInfo: `<span class="err">Not a valid sequence start</span>`
+        });
+        errs.push(`Byte #${i} (0x${hex2(b0)}) is ${isCont ? "a continuation byte" : "invalid"} where a lead byte was expected.`);
+        i += 1;
+        continue;
+      }
+
+      const len = lead.len;
+      const seqStart = i;
+      const seqBytes = bytes.slice(i, i + len);
+
+      if (seqBytes.length < len) {
+        errs.push(`Truncated sequence starting at byte #${seqStart}: expected ${len} bytes, got ${seqBytes.length}.`);
+      }
+
+      // Validate continuations and collect payload bits.
+      let payloadBitsAll = lead.payloadBits;
+      let ok = true;
+
+      // Lead byte row
+      rows.push({
+        idx: i,
+        hex: hex2(b0),
+        bitsHtml: renderBits(toBin8(b0), lead.ctlBits.length, false),
+        role: lead.roleLabel,
+        payloadBits: lead.payloadBits,
+        seqInfo: "" // fill later for first row
+      });
+
+      for (let j = 1; j < len; j++) {
+        const bi = bytes[i + j];
+        if (bi === undefined) { ok = false; continue; }
+        const c = classifyCont(bi);
+        if (!c.valid) ok = false;
+        payloadBitsAll += c.payloadBits;
+
+        rows.push({
+          idx: i + j,
+          hex: hex2(bi),
+          bitsHtml: c.valid ? renderBits(toBin8(bi), 2, false) : `<span class="bits mono"><span class="bad">${toBin8(bi)}</span></span>`,
+          role: c.valid ? `Continuation (${j}/${len-1})` : `Invalid continuation (${j}/${len-1})`,
+          payloadBits: c.valid ? c.payloadBits : "",
+          seqInfo: ""
+        });
+
+        if (!c.valid) {
+          errs.push(`Byte #${i + j} (0x${hex2(bi)}) is not a valid continuation (must start with 10xxxxxx).`);
+        }
+      }
+
+      // Compute code point if structurally OK.
+      let cp = null;
+      let ch = "";
+      let cpInfo = "";
+      if (ok) {
+        cp = parseInt(payloadBitsAll, 2);
+
+        // Minimal UTF-8 well-formed checks:
+        // - No surrogate code points
+        // - Max U+10FFFF
+        // - Reject overlong encodings
+        const overlong =
+          (len === 2 && cp < 0x80) ||
+          (len === 3 && cp < 0x800) ||
+          (len === 4 && cp < 0x10000);
+
+        const surrogate = (cp >= 0xD800 && cp <= 0xDFFF);
+        const tooHigh = (cp > 0x10FFFF);
+
+        if (overlong) {
+          ok = false;
+          errs.push(`Overlong encoding at byte #${seqStart}: decodes to U+${cp.toString(16).toUpperCase()} but used ${len} bytes.`);
+        }
+        if (surrogate) {
+          ok = false;
+          errs.push(`Invalid code point (surrogate) at byte #${seqStart}: U+${cp.toString(16).toUpperCase()}.`);
+        }
+        if (tooHigh) {
+          ok = false;
+          errs.push(`Invalid code point (> U+10FFFF) at byte #${seqStart}: U+${cp.toString(16).toUpperCase()}.`);
+        }
+
+        if (ok) {
+          ch = codePointToChar(cp);
+          const u = "U+" + cp.toString(16).toUpperCase().padStart(cp <= 0xFFFF ? 4 : 6, '0');
+          cpInfo = `<span class="ok">OK</span> ${escapeHtml(u)} ${escapeHtml(ch)} <span class="small">(payload bits: ${payloadBitsAll.length})</span>`;
+        } else {
+          cpInfo = `<span class="err">Invalid</span> (payload bits: ${payloadBitsAll.length})`;
+        }
+      } else {
+        cpInfo = `<span class="err">Invalid</span> (structural)`;
+      }
+
+      // Put sequence info on the first row of the sequence.
+      rows[rows.length - len].seqInfo =
+        `<div class="seq"><div><span class="pill">seq</span> ${len}-byte @ #${seqStart}</div><div class="mono">${cpInfo}</div></div>`;
+
+      seqCount += 1;
+      i += len;
+    }
+
+    render(rows, errs, { bytes, sequences: seqCount });
+  }
+
+  function render(rows, errs, meta) {
+    out.innerHTML = rows.map(r => `
+      <tr>
+        <td class="mono">${r.idx}</td>
+        <td class="mono">0x${r.hex}</td>
+        <td>${r.bitsHtml}</td>
+        <td>${escapeHtml(r.role)}</td>
+        <td class="mono">${escapeHtml(r.payloadBits || "")}</td>
+        <td>${r.seqInfo || ""}</td>
+      </tr>
+    `).join("");
+
+    summaryEl.innerHTML = `
+      <div><span class="pill">Bytes</span> ${meta.bytes.length}</div>
+      <div style="margin-top:6px;"><span class="pill">Sequences</span> ${meta.sequences}</div>
+    `;
+
+    if (errs.length) {
+      errorsEl.innerHTML = `<div class="err"><div><span class="pill">Errors</span> ${errs.length}</div><ul>${errs.map(e => `<li>${escapeHtml(e)}</li>`).join("")}</ul></div>`;
+    } else {
+      errorsEl.innerHTML = `<div class="ok"><span class="pill">Errors</span> 0</div>`;
+    }
+  }
+
+  // Auto-run on paste / input for convenience.
+  let t = null;
+  hexInput.addEventListener('input', () => {
+    clearTimeout(t);
+    t = setTimeout(analyze, 120);
+  });
+
+  // Seed with a demo
+  hexInput.value = "F0 9F 92 A9";
+  analyze();
+})();
+</script>
+</body>
+</html>

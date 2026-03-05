@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>OLED Font Glyph Explorer (Column-major)</title>
+  <style>
+    :root { --cell: 18px; --gap: 1px; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 16px; }
+    .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+    .panel { border: 1px solid #ddd; border-radius: 8px; padding: 12px; }
+    .panel h2 { margin: 0 0 8px; font-size: 14px; }
+    label { display: inline-flex; gap: 8px; align-items: center; margin: 6px 0; }
+    input[type="number"] { width: 92px; }
+    textarea { width: min(680px, 90vw); height: 110px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+    .gridWrap { overflow: auto; max-width: min(680px, 90vw); max-height: 70vh; border: 1px solid #ddd; border-radius: 8px; padding: 8px; }
+    .grid { display: grid; gap: var(--gap); background: #eee; padding: var(--gap); width: fit-content; }
+    .cell {
+      width: var(--cell); height: var(--cell);
+      background: #fff; cursor: pointer; user-select: none;
+      display: grid; place-items: center; font-size: 10px; color: #999;
+    }
+    .cell.on { background: #1976d2; }
+    .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    button { padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; background: #fafafa; cursor: pointer; }
+    button:active { transform: translateY(1px); }
+    .hint { color: #555; font-size: 12px; line-height: 1.35; max-width: 680px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: center; }
+    .kv .k { color: #444; font-size: 12px; }
+    .kv .v { font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="row">
+    <div class="panel" style="flex: 1 1 720px;">
+      <h2>Glyph Grid (edit pixels)</h2>
+      <div class="hint">
+        This explorer uses the common SSD1306/ThingPulse font packing: <b>column-major</b>.
+        For a glyph of height <span class="mono">H</span>, each column uses
+        <span class="mono">bytesPerCol = ceil(H/8)</span>.
+        Bytes are laid out as: <span class="mono">col0(byte0..byteN), col1(byte0..byteN), ...</span>.
+      </div>
+
+      <div class="toolbar">
+        <label>Height (px) <input id="height" type="number" min="1" max="64" value="13"></label>
+        <label>Columns (bitmap width) <input id="cols" type="number" min="1" max="64" value="2"></label>
+        <label>Advance (xAdvance) <input id="adv" type="number" min="0" max="64" value="3"></label>
+        <label>Cell size <input id="cellSize" type="number" min="8" max="40" value="18"></label>
+      </div>
+
+      <div class="toolbar">
+        <button id="clear">Clear</button>
+        <button id="invert">Invert</button>
+        <button id="shiftUp">Shift ↑</button>
+        <button id="shiftDown">Shift ↓</button>
+        <button id="shiftLeft">Shift ←</button>
+        <button id="shiftRight">Shift →</button>
+      </div>
+
+      <div style="margin-top: 10px;" class="gridWrap">
+        <div id="grid" class="grid" aria-label="pixel grid"></div>
+      </div>
+    </div>
+
+    <div class="panel" style="flex: 1 1 360px;">
+      <h2>Bytes (column-major)</h2>
+
+      <div class="kv" style="margin-bottom: 10px;">
+        <div class="k">bytesPerCol</div><div class="v mono" id="bpc">?</div>
+        <div class="k">dataLen</div><div class="v mono" id="dlen">?</div>
+      </div>
+
+      <label style="display:block; margin-top: 8px;">Hex bytes (paste/edit)
+        <textarea id="hex" spellcheck="false" class="mono"
+          placeholder="Example for '!': 0x00, 0x00, 0xF8, 0x02"></textarea>
+      </label>
+
+      <div class="toolbar">
+        <button id="decode">Decode → Grid</button>
+        <button id="encode">Encode → Hex</button>
+        <button id="exampleBang">Load example '!'</button>
+      </div>
+
+      <div class="hint" style="margin-top: 10px;">
+        Notes:
+        <ul>
+          <li>Bits in each byte map to vertical pixels (rows) in that column.</li>
+          <li>This tool assumes bit 0 = row 0, bit 1 = row 1, etc. (common in SSD1306 fonts).</li>
+          <li>If your renderer uses inverted bit order, toggle “Bit order” below.</li>
+        </ul>
+      </div>
+
+      <div class="toolbar">
+        <label>Bit order
+          <select id="bitOrder">
+            <option value="lsb0" selected>LSB = top (bit0=row0)</option>
+            <option value="msb0">MSB = top (bit7=row0)</option>
+          </select>
+        </label>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const el = (id) => document.getElementById(id);
+
+  const heightEl = el('height');
+  const colsEl = el('cols');
+  const advEl = el('adv');
+  const cellSizeEl = el('cellSize');
+  const gridEl = el('grid');
+  const hexEl = el('hex');
+  const bitOrderEl = el('bitOrder');
+  const bpcEl = el('bpc');
+  const dlenEl = el('dlen');
+
+  let H = +heightEl.value;
+  let C = +colsEl.value;
+  let pixels = []; // [row][col] boolean
+
+  function bytesPerCol() { return Math.ceil(H / 8); }
+  function dataLen() { return bytesPerCol() * C; }
+
+  function setCellSize(px) {
+    document.documentElement.style.setProperty('--cell', px + 'px');
+  }
+
+  function initPixels() {
+    pixels = Array.from({ length: H }, () => Array.from({ length: C }, () => false));
+  }
+
+  function renderMeta() {
+    const bpc = bytesPerCol();
+    bpcEl.textContent = String(bpc);
+    dlenEl.textContent = String(dataLen()) + ' bytes';
+    gridEl.style.gridTemplateColumns = `repeat(${C}, var(--cell))`;
+    gridEl.style.gridTemplateRows = `repeat(${H}, var(--cell))`;
+  }
+
+  function renderGrid() {
+    gridEl.innerHTML = '';
+    renderMeta();
+
+    for (let r = 0; r < H; r++) {
+      for (let c = 0; c < C; c++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell' + (pixels[r][c] ? ' on' : '');
+        cell.title = `row ${r}, col ${c}`;
+        cell.addEventListener('click', () => {
+          pixels[r][c] = !pixels[r][c];
+          cell.classList.toggle('on', pixels[r][c]);
+        });
+        gridEl.appendChild(cell);
+      }
+    }
+  }
+
+  function parseHexBytes(text) {
+    // Accept: 0xNN, NN, or decimal. Split by commas/whitespace.
+    const parts = text
+      .replace(/\/\/.*$/gm, '')        // strip // comments
+      .replace(/\/\*[\s\S]*?\*\//g,'') // strip /* */ comments
+      .split(/[\s,]+/)
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    const out = [];
+    for (const p of parts) {
+      let v;
+      if (/^0x[0-9a-f]+$/i.test(p)) v = parseInt(p, 16);
+      else if (/^[0-9a-f]{1,2}$/i.test(p)) v = parseInt(p, 16);
+      else if (/^\d+$/.test(p)) v = parseInt(p, 10);
+      else continue;
+      if (!Number.isFinite(v)) continue;
+      out.push(v & 0xFF);
+    }
+    return out;
+  }
+
+  function formatHexBytes(bytes) {
+    return bytes.map(b => '0x' + b.toString(16).toUpperCase().padStart(2, '0')).join(', ');
+  }
+
+  function getBit(byte, bitIndex, bitOrder) {
+    if (bitOrder === 'lsb0') return (byte >> bitIndex) & 1;
+    // msb0: bit7 is row0 => bitIndex row maps to (7 - (row%8))
+    return (byte >> (7 - bitIndex)) & 1;
+  }
+
+  function setBit(byte, bitIndex, bitOrder, on) {
+    const mask = bitOrder === 'lsb0' ? (1 << bitIndex) : (1 << (7 - bitIndex));
+    if (on) return byte | mask;
+    return byte & (~mask & 0xFF);
+  }
+
+  function decodeToGrid(bytes) {
+    const bpc = bytesPerCol();
+    const needed = bpc * C;
+
+    if (bytes.length < needed) {
+      // pad missing bytes with 0
+      bytes = bytes.concat(Array.from({length: needed - bytes.length}, () => 0));
+    } else if (bytes.length > needed) {
+      bytes = bytes.slice(0, needed);
+    }
+
+    const bitOrder = bitOrderEl.value;
+    initPixels();
+
+    for (let c = 0; c < C; c++) {
+      for (let r = 0; r < H; r++) {
+        const block = Math.floor(r / 8);
+        const bit = r % 8;
+        const idx = c * bpc + block; // column-major
+        const byte = bytes[idx];
+        pixels[r][c] = !!getBit(byte, bit, bitOrder);
+      }
+    }
+    renderGrid();
+  }
+
+  function encodeFromGrid() {
+    const bpc = bytesPerCol();
+    const bytes = Array.from({ length: bpc * C }, () => 0);
+    const bitOrder = bitOrderEl.value;
+
+    for (let c = 0; c < C; c++) {
+      for (let r = 0; r < H; r++) {
+        const block = Math.floor(r / 8);
+        const bit = r % 8;
+        const idx = c * bpc + block;
+        bytes[idx] = setBit(bytes[idx], bit, bitOrder, pixels[r][c]);
+      }
+    }
+    return bytes;
+  }
+
+  function shift(dx, dy) {
+    const next = Array.from({ length: H }, () => Array.from({ length: C }, () => false));
+    for (let r = 0; r < H; r++) {
+      for (let c = 0; c < C; c++) {
+        const rr = r - dy, cc = c - dx;
+        if (rr >= 0 && rr < H && cc >= 0 && cc < C) next[r][c] = pixels[rr][cc];
+      }
+    }
+    pixels = next;
+    renderGrid();
+  }
+
+  // Handlers
+  function applyDimsFromInputs() {
+    const newH = Math.max(1, Math.min(64, +heightEl.value || 13));
+    const newC = Math.max(1, Math.min(64, +colsEl.value || 1));
+    H = newH; C = newC;
+    initPixels();
+    renderGrid();
+    // keep current hex in sync
+    hexEl.value = formatHexBytes(encodeFromGrid());
+  }
+
+  heightEl.addEventListener('change', applyDimsFromInputs);
+  colsEl.addEventListener('change', applyDimsFromInputs);
+
+  cellSizeEl.addEventListener('change', () => setCellSize(+cellSizeEl.value || 18));
+  setCellSize(+cellSizeEl.value || 18);
+
+  el('clear').addEventListener('click', () => {
+    initPixels();
+    renderGrid();
+    hexEl.value = formatHexBytes(encodeFromGrid());
+  });
+
+  el('invert').addEventListener('click', () => {
+    for (let r = 0; r < H; r++) for (let c = 0; c < C; c++) pixels[r][c] = !pixels[r][c];
+    renderGrid();
+    hexEl.value = formatHexBytes(encodeFromGrid());
+  });
+
+  el('shiftUp').addEventListener('click', () => shift(0, -1));
+  el('shiftDown').addEventListener('click', () => shift(0, 1));
+  el('shiftLeft').addEventListener('click', () => shift(-1, 0));
+  el('shiftRight').addEventListener('click', () => shift(1, 0));
+
+  el('decode').addEventListener('click', () => {
+    const bytes = parseHexBytes(hexEl.value);
+    decodeToGrid(bytes);
+  });
+
+  el('encode').addEventListener('click', () => {
+    const bytes = encodeFromGrid();
+    hexEl.value = formatHexBytes(bytes);
+  });
+
+  el('exampleBang').addEventListener('click', () => {
+    heightEl.value = 13;
+    colsEl.value = 2;
+    advEl.value = 3;
+    H = 13; C = 2;
+    initPixels();
+    // bytes for '!' you provided: 0x00,0x00,0xF8,0x02
+    hexEl.value = '0x00, 0x00, 0xF8, 0x02';
+    decodeToGrid([0x00,0x00,0xF8,0x02]);
+  });
+
+  bitOrderEl.addEventListener('change', () => {
+    // re-decode from current hex to reflect bit order
+    const bytes = parseHexBytes(hexEl.value);
+    decodeToGrid(bytes);
+  });
+
+  // Initialize
+  initPixels();
+  renderGrid();
+  hexEl.value = formatHexBytes(encodeFromGrid());
+})();
+</script>
+</body>
+</html>

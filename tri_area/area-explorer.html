@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Regular Polygon: Area vs Perimeter</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem 1rem;
+  }
+  h1 {
+    font-size: 1.6rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    background: linear-gradient(135deg, #38bdf8, #818cf8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .subtitle { color: #94a3b8; font-size: 0.95rem; margin-bottom: 1.5rem; }
+  .app {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    max-width: 960px;
+    width: 100%;
+  }
+  @media (max-width: 700px) { .app { grid-template-columns: 1fr; } }
+  .card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .card h2 { font-size: 1rem; color: #94a3b8; margin-bottom: 1rem; font-weight: 500; }
+
+  /* Polygon canvas */
+  #polyCanvas { width: 100%; aspect-ratio: 1; max-width: 380px; }
+
+  /* Stats */
+  .stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    width: 100%;
+    margin-top: 1rem;
+  }
+  .stat {
+    background: #0f172a;
+    border-radius: 0.75rem;
+    padding: 0.75rem 1rem;
+    text-align: center;
+  }
+  .stat:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .stat .label { font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+  .stat .value { font-size: 1.35rem; font-weight: 700; color: #38bdf8; margin-top: 0.15rem; }
+  .stat .value.accent2 { color: #818cf8; }
+  .stat .unit { font-size: 0.8rem; font-weight: 400; color: #64748b; }
+
+  /* Slider */
+  .slider-section {
+    width: 100%;
+    max-width: 960px;
+    margin-top: 1.5rem;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 1rem;
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+  }
+  .slider-section label { font-size: 0.9rem; color: #94a3b8; white-space: nowrap; }
+  .slider-section input[type=range] {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    background: #334155;
+    border-radius: 3px;
+    outline: none;
+  }
+  .slider-section input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px; height: 20px;
+    background: #38bdf8;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 8px #38bdf855;
+  }
+  .slider-section input[type=range]::-moz-range-thumb {
+    width: 20px; height: 20px;
+    background: #38bdf8;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  .sides-display {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #38bdf8;
+    min-width: 3.5rem;
+    text-align: center;
+  }
+
+  /* Chart */
+  #chartCanvas { width: 100%; aspect-ratio: 1; max-width: 380px; }
+
+  /* Info bar */
+  .info-bar {
+    width: 100%;
+    max-width: 960px;
+    margin-top: 1rem;
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    color: #64748b;
+    font-size: 0.85rem;
+  }
+  .info-bar span { display: flex; align-items: center; gap: 0.4rem; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .dot.blue { background: #38bdf8; }
+  .dot.purple { background: #818cf8; }
+  .dot.circle-line { background: #f472b6; }
+</style>
+</head>
+<body>
+
+<h1>Regular Polygon — Area &amp; Perimeter</h1>
+<p class="subtitle">Area fixed at 1 unit². See how perimeter changes with number of sides.</p>
+
+<div class="app">
+  <div class="card">
+    <h2>Polygon Shape</h2>
+    <canvas id="polyCanvas"></canvas>
+    <div class="stats">
+      <div class="stat">
+        <div class="label">Sides</div>
+        <div class="value" id="statSides">3</div>
+      </div>
+      <div class="stat">
+        <div class="label">Perimeter</div>
+        <div class="value accent2" id="statPerimeter">4.559</div>
+      </div>
+      <div class="stat">
+        <div class="label">P / A Ratio</div>
+        <div class="value accent2" id="statRatio">4.559</div>
+      </div>
+      <div class="stat">
+        <div class="label">Side Length</div>
+        <div class="value" id="statSide">1.520</div>
+      </div>
+      <div class="stat">
+        <div class="label">Circle Limit</div>
+        <div class="value accent2" id="statCircle">3.545</div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Perimeter / Area Ratio vs Sides</h2>
+    <canvas id="chartCanvas"></canvas>
+  </div>
+</div>
+
+<div class="slider-section">
+  <label for="sidesSlider">Sides</label>
+  <input type="range" id="sidesSlider" min="3" max="120" value="3">
+  <div class="sides-display" id="sidesDisplay">3</div>
+</div>
+
+<div class="info-bar">
+  <span><span class="dot blue"></span> P/A ratio</span>
+  <span><span class="dot circle-line"></span> Circle limit (2√π ≈ 3.5449)</span>
+</div>
+
+<script>
+const AREA = 1;
+const CIRCLE_PERIM = 2 * Math.sqrt(Math.PI); // perimeter of circle with area 1
+
+const polyCanvas = document.getElementById('polyCanvas');
+const chartCanvas = document.getElementById('chartCanvas');
+const slider = document.getElementById('sidesSlider');
+const sidesDisplay = document.getElementById('sidesDisplay');
+const statSides = document.getElementById('statSides');
+const statPerimeter = document.getElementById('statPerimeter');
+const statRatio = document.getElementById('statRatio');
+const statSide = document.getElementById('statSide');
+const statCircle = document.getElementById('statCircle');
+
+statCircle.textContent = CIRCLE_PERIM.toFixed(4);
+
+function getPerimeter(n) {
+  return 2 * Math.sqrt(n * Math.tan(Math.PI / n));
+}
+
+function getRatio(n) {
+  return getPerimeter(n) / AREA;
+}
+
+function getSideLength(n) {
+  return getPerimeter(n) / n;
+}
+
+// Compute circumradius for a regular n-gon with area = 1
+function getCircumradius(n) {
+  // A = (1/2) n R² sin(2π/n)  =>  R = sqrt(2A / (n sin(2π/n)))
+  return Math.sqrt(2 * AREA / (n * Math.sin(2 * Math.PI / n)));
+}
+
+function resizeCanvas(canvas) {
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  return { w: canvas.width, h: canvas.height, dpr };
+}
+
+function drawPolygon(n) {
+  const { w, h, dpr } = resizeCanvas(polyCanvas);
+  const ctx = polyCanvas.getContext('2d');
+  ctx.clearRect(0, 0, w, h);
+
+  const cx = w / 2, cy = h / 2;
+  const maxR = Math.min(w, h) * 0.4;
+
+  // Draw circle reference (what n→∞ looks like)
+  ctx.beginPath();
+  ctx.arc(cx, cy, maxR, 0, 2 * Math.PI);
+  ctx.strokeStyle = '#f472b622';
+  ctx.lineWidth = 2 * dpr;
+  ctx.setLineDash([6 * dpr, 4 * dpr]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Draw polygon scaled to fill canvas nicely
+  const R = maxR * 0.95;
+  ctx.beginPath();
+  for (let i = 0; i <= n; i++) {
+    const angle = (2 * Math.PI * i) / n - Math.PI / 2;
+    const x = cx + R * Math.cos(angle);
+    const y = cy + R * Math.sin(angle);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+
+  // Fill
+  const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
+  grad.addColorStop(0, '#38bdf820');
+  grad.addColorStop(1, '#818cf818');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Stroke
+  ctx.strokeStyle = '#38bdf8';
+  ctx.lineWidth = 2.5 * dpr;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+
+  // Vertices
+  for (let i = 0; i < Math.min(n, 60); i++) {
+    const angle = (2 * Math.PI * i) / n - Math.PI / 2;
+    const x = cx + R * Math.cos(angle);
+    const y = cy + R * Math.sin(angle);
+    ctx.beginPath();
+    ctx.arc(x, y, 3.5 * dpr, 0, 2 * Math.PI);
+    ctx.fillStyle = '#38bdf8';
+    ctx.fill();
+  }
+
+  // Center label
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = `${14 * dpr}px "Segoe UI", system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('Area = 1 unit²', cx, cy);
+}
+
+function drawChart(currentN) {
+  const { w, h, dpr } = resizeCanvas(chartCanvas);
+  const ctx = chartCanvas.getContext('2d');
+  ctx.clearRect(0, 0, w, h);
+
+  const pad = { top: 20 * dpr, right: 20 * dpr, bottom: 45 * dpr, left: 55 * dpr };
+  const plotW = w - pad.left - pad.right;
+  const plotH = h - pad.top - pad.bottom;
+
+  const nMin = 3, nMax = 120;
+  const pMin = CIRCLE_PERIM / AREA - 0.1;
+  const pMax = getRatio(3) + 0.15;
+
+  function xOf(n) { return pad.left + ((n - nMin) / (nMax - nMin)) * plotW; }
+  function yOf(r) { return pad.top + ((pMax - r) / (pMax - pMin)) * plotH; }
+
+  // Grid lines
+  ctx.strokeStyle = '#334155';
+  ctx.lineWidth = 1 * dpr;
+  const nTicks = [3, 10, 20, 30, 40, 60, 80, 100, 120];
+  for (const n of nTicks) {
+    const x = xOf(n);
+    ctx.beginPath(); ctx.moveTo(x, pad.top); ctx.lineTo(x, pad.top + plotH); ctx.stroke();
+  }
+  const pTicks = [];
+  for (let p = 3.5; p <= pMax + 0.01; p += 0.2) pTicks.push(+p.toFixed(1));
+  for (const p of pTicks) {
+    const y = yOf(p);
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + plotW, y); ctx.stroke();
+  }
+
+  // Axes
+  ctx.strokeStyle = '#475569';
+  ctx.lineWidth = 1.5 * dpr;
+  ctx.beginPath();
+  ctx.moveTo(pad.left, pad.top);
+  ctx.lineTo(pad.left, pad.top + plotH);
+  ctx.lineTo(pad.left + plotW, pad.top + plotH);
+  ctx.stroke();
+
+  // Axis labels
+  ctx.fillStyle = '#64748b';
+  ctx.font = `${11 * dpr}px "Segoe UI", system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  for (const n of nTicks) {
+    ctx.fillText(n, xOf(n), pad.top + plotH + 6 * dpr);
+  }
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'right';
+  for (const p of pTicks) {
+    ctx.fillText(p.toFixed(1), pad.left - 8 * dpr, yOf(p));
+  }
+
+  // Axis titles
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = `${12 * dpr}px "Segoe UI", system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText('Number of Sides', pad.left + plotW / 2, h - 12 * dpr);
+
+  ctx.save();
+  ctx.translate(14 * dpr, pad.top + plotH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textBaseline = 'middle';
+  ctx.fillText('P / A Ratio', 0, 0);
+  ctx.restore();
+
+  // Circle limit line
+  const circleRatio = CIRCLE_PERIM / AREA;
+  const yCircle = yOf(circleRatio);
+  ctx.setLineDash([6 * dpr, 4 * dpr]);
+  ctx.strokeStyle = '#f472b6';
+  ctx.lineWidth = 2 * dpr;
+  ctx.beginPath();
+  ctx.moveTo(pad.left, yCircle);
+  ctx.lineTo(pad.left + plotW, yCircle);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = '#f472b6';
+  ctx.font = `${10 * dpr}px "Segoe UI", system-ui, sans-serif`;
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(`2√π ≈ ${circleRatio.toFixed(3)}`, pad.left + plotW - 4 * dpr, yCircle - 4 * dpr);
+
+  // Ratio curve
+  ctx.beginPath();
+  for (let n = nMin; n <= nMax; n++) {
+    const x = xOf(n);
+    const y = yOf(getRatio(n));
+    if (n === nMin) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = '#38bdf8';
+  ctx.lineWidth = 2.5 * dpr;
+  ctx.stroke();
+
+  // Data points
+  for (let n = nMin; n <= nMax; n++) {
+    const x = xOf(n);
+    const y = yOf(getRatio(n));
+    ctx.beginPath();
+    ctx.arc(x, y, (n === currentN ? 6 : 2) * dpr, 0, 2 * Math.PI);
+    ctx.fillStyle = n === currentN ? '#818cf8' : '#38bdf8';
+    ctx.fill();
+  }
+
+  // Current point highlight
+  if (currentN >= nMin && currentN <= nMax) {
+    const x = xOf(currentN);
+    const y = yOf(getRatio(currentN));
+    // Glow
+    ctx.beginPath();
+    ctx.arc(x, y, 10 * dpr, 0, 2 * Math.PI);
+    ctx.fillStyle = '#818cf833';
+    ctx.fill();
+    // Crosshair
+    ctx.setLineDash([3 * dpr, 3 * dpr]);
+    ctx.strokeStyle = '#818cf866';
+    ctx.lineWidth = 1 * dpr;
+    ctx.beginPath(); ctx.moveTo(x, pad.top); ctx.lineTo(x, pad.top + plotH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + plotW, y); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Label
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = `bold ${11 * dpr}px "Segoe UI", system-ui, sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'bottom';
+    const labelX = x + 10 * dpr;
+    const labelY = y - 10 * dpr;
+    ctx.fillText(`P/A = ${getRatio(currentN).toFixed(4)}`, labelX, labelY);
+  }
+}
+
+function update() {
+  const n = parseInt(slider.value);
+  const perim = getPerimeter(n);
+  const side = getSideLength(n);
+  const ratio = getRatio(n);
+
+  sidesDisplay.textContent = n;
+  statSides.textContent = n;
+  statPerimeter.textContent = perim.toFixed(4);
+  statRatio.textContent = ratio.toFixed(4);
+  statSide.textContent = side.toFixed(4);
+
+  drawPolygon(n);
+  drawChart(n);
+}
+
+slider.addEventListener('input', update);
+window.addEventListener('resize', update);
+update();
+</script>
+</body>
+</html>

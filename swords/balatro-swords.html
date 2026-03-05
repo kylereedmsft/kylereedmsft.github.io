@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Beginners with Swords</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0f2b1d;--bg2:#0a1f14;--felt:#1a472a;
+  --card:#faf3e8;--text:#e8e1d5;--dim:#7a7468;--gold:#ffd700;
+  --chips:#4c9bf5;--mult:#fe5f55;
+  --panel:rgba(0,0,0,0.55);--panel2:rgba(0,0,0,0.35);
+  --katana:#fe5f55;--waki:#4c9bf5;--tanto:#44d68e;--nodachi:#b86ef0;
+}
+html,body{height:100%;overflow:hidden}
+body{
+  background:radial-gradient(ellipse at 50% 40%,var(--felt),var(--bg) 70%,var(--bg2));
+  font-family:'Segoe UI',system-ui,sans-serif;color:var(--text);
+  display:flex;justify-content:center;align-items:center;
+}
+#app{width:960px;height:700px;position:relative;user-select:none}
+canvas{position:absolute;inset:0;z-index:0;border-radius:8px;display:none}
+canvas.visible{display:block}
+.screen{display:none;position:absolute;inset:0;flex-direction:column;align-items:center;justify-content:center;z-index:1}
+.screen.active{display:flex}
+
+/* Buttons */
+.btn{
+  padding:12px 32px;border:none;border-radius:10px;font-size:17px;font-weight:700;
+  cursor:pointer;transition:all .15s;font-family:inherit;letter-spacing:.5px;
+  box-shadow:0 4px 12px rgba(0,0,0,.3);
+}
+.btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.4)}
+.btn:active{transform:translateY(0)}
+.btn-play{background:var(--chips);color:#fff}
+.btn-gold{background:linear-gradient(135deg,#f0c040,#e8a020);color:#1a1a1a}
+.btn-red{background:var(--mult);color:#fff}
+.btn-dark{background:rgba(255,255,255,.1);color:var(--text)}
+.btn-green{background:#2ecc71;color:#fff}
+.btn-sm{padding:8px 18px;font-size:14px}
+.btn:disabled{opacity:.4;cursor:default;transform:none!important}
+
+/* Menu */
+#menu .title{font-size:48px;font-weight:900;letter-spacing:2px;text-shadow:0 4px 20px rgba(0,0,0,.6);margin-bottom:4px}
+#menu .subtitle{font-size:16px;color:var(--dim);margin-bottom:6px}
+#menu .howto{font-size:13px;color:var(--dim);max-width:500px;text-align:center;line-height:1.5;margin-bottom:24px}
+
+/* Blind intro */
+#blind-intro{background:rgba(0,0,0,.7)}
+.bi-box{text-align:center;padding:36px 56px;background:var(--panel);border-radius:16px;border:2px solid rgba(255,255,255,.1);animation:popIn .4s ease}
+.bi-type{font-size:13px;color:var(--dim);text-transform:uppercase;letter-spacing:3px;margin-bottom:6px}
+.bi-name{font-size:32px;font-weight:900;margin-bottom:10px}
+.bi-desc{font-size:14px;color:var(--mult);margin-bottom:6px;min-height:18px}
+.bi-target{font-size:18px;margin-bottom:20px}
+.bi-target span{color:var(--chips);font-weight:800}
+
+/* Card phase */
+#cards{justify-content:flex-start;padding:8px 0;background:radial-gradient(ellipse at 50% 40%,var(--felt),var(--bg) 70%,var(--bg2))}
+.top-bar{width:100%;display:flex;justify-content:space-between;align-items:center;padding:7px 18px;background:var(--panel);border-radius:10px;margin-bottom:6px}
+.top-bar .ante{font-weight:700;font-size:14px}
+.top-bar .money{color:var(--gold);font-weight:800;font-size:19px}
+.joker-area{width:100%;min-height:80px;display:flex;gap:7px;padding:5px 10px;background:var(--panel2);border-radius:9px;margin-bottom:6px;align-items:center;overflow-x:auto}
+.joker-slot{width:66px;height:72px;border-radius:7px;background:rgba(255,255,255,.05);border:2px dashed rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;color:var(--dim)}
+.joker-card{width:66px;height:72px;border-radius:7px;padding:3px;flex-shrink:0;background:linear-gradient(145deg,#2a2250,#1a1740);border:2px solid rgba(180,130,255,.4);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:all .15s;position:relative}
+.joker-card:hover{transform:translateY(-4px);border-color:rgba(180,130,255,.8)}
+.joker-card .j-emoji{font-size:20px;margin-bottom:1px}
+.joker-card .j-name{font-size:7.5px;font-weight:700;text-align:center;color:#cbb8f0;line-height:1.1}
+.joker-card .j-sell{position:absolute;bottom:-8px;background:var(--gold);color:#111;font-size:8px;font-weight:800;padding:1px 5px;border-radius:4px;display:none}
+.joker-card:hover .j-sell{display:block}
+.tooltip{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#1a1a2e;color:var(--text);padding:6px 10px;border-radius:7px;font-size:10px;white-space:nowrap;pointer-events:none;z-index:200;border:1px solid rgba(255,255,255,.15);display:none}
+.joker-card:hover .tooltip{display:block}
+
+.power-bar{width:100%;display:flex;justify-content:center;align-items:center;gap:16px;padding:6px 16px;margin-bottom:4px;flex-wrap:wrap}
+.power-val{font-size:22px;font-weight:900;color:var(--gold)}
+.buff-tag{font-size:12px;padding:3px 10px;border-radius:6px;background:var(--panel);font-weight:600}
+
+.hand-area{flex:1;display:flex;align-items:center;justify-content:center;gap:3px;padding:10px 8px}
+.card{width:74px;height:106px;border-radius:9px;background:var(--card);display:flex;flex-direction:column;padding:5px;cursor:pointer;transition:all .18s cubic-bezier(.4,0,.2,1);position:relative;box-shadow:0 2px 8px rgba(0,0,0,.3);border:2.5px solid transparent;flex-shrink:0}
+.card:hover{transform:translateY(-12px) scale(1.04);z-index:10;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.card.selected{transform:translateY(-24px) scale(1.06);z-index:11;box-shadow:0 12px 32px rgba(0,0,0,.5)}
+.card.selected.s-katana{border-color:var(--katana);box-shadow:0 12px 32px rgba(254,95,85,.3)}
+.card.selected.s-waki{border-color:var(--waki);box-shadow:0 12px 32px rgba(76,155,245,.3)}
+.card.selected.s-tanto{border-color:var(--tanto);box-shadow:0 12px 32px rgba(68,214,142,.3)}
+.card.selected.s-nodachi{border-color:var(--nodachi);box-shadow:0 12px 32px rgba(184,110,240,.3)}
+.card .c-rank{font-size:15px;font-weight:900;line-height:1}
+.card .c-suit-sym{font-size:26px;margin:auto;line-height:1}
+.card .c-bot{font-size:9px;font-weight:700;text-align:right;margin-top:auto;opacity:.7}
+.card .c-chips{position:absolute;bottom:2px;left:50%;transform:translateX(-50%);font-size:8px;background:rgba(0,0,0,.55);color:var(--chips);padding:1px 5px;border-radius:3px;font-weight:700;display:none}
+.card.selected .c-chips{display:block}
+
+.hand-preview{width:100%;text-align:center;padding:3px;min-height:24px;font-size:14px;font-weight:700}
+.preview-type{color:var(--gold)}.preview-chips{color:var(--chips)}.preview-mult{color:var(--mult)}
+.action-bar{width:100%;display:flex;justify-content:center;gap:10px;padding:5px 16px;align-items:center}
+.hands-left,.discards-left{font-size:12px;font-weight:700;padding:3px 8px;border-radius:5px;background:var(--panel)}
+.deck-count{font-size:11px;color:var(--dim);margin-left:6px}
+
+/* Score overlay */
+#score-overlay{background:rgba(0,0,0,.45);z-index:50}
+.so-hand{font-size:28px;font-weight:900;color:var(--gold);text-shadow:0 0 30px rgba(255,215,0,.4);margin-bottom:8px;animation:popIn .3s ease}
+.so-calc{font-size:24px;font-weight:700;margin-bottom:6px;animation:popIn .3s ease .1s both}
+.so-calc .c{color:var(--chips)}.so-calc .m{color:var(--mult)}.so-calc .x{color:var(--dim);margin:0 6px}
+.so-total{font-size:40px;font-weight:900;color:#fff;text-shadow:0 0 40px rgba(255,255,255,.3);animation:popIn .4s ease .2s both}
+.so-power{font-size:16px;color:var(--gold);margin-top:8px;animation:popIn .3s ease .35s both}
+
+/* Buff summary */
+#buff-summary{background:rgba(0,0,0,.75);z-index:2}
+.bs-box{text-align:center;padding:30px 50px;animation:popIn .4s ease}
+.bs-title{font-size:24px;font-weight:900;margin-bottom:16px;color:var(--gold)}
+.bs-buffs{display:flex;gap:20px;justify-content:center;margin-bottom:20px;flex-wrap:wrap}
+.bs-buff{background:var(--panel);padding:10px 18px;border-radius:10px;text-align:center}
+.bs-buff .bb-icon{font-size:28px}
+.bs-buff .bb-label{font-size:11px;color:var(--dim);margin-top:2px}
+.bs-buff .bb-val{font-size:18px;font-weight:800}
+
+/* Action HUD */
+#action-hud{position:absolute;inset:0;z-index:2;pointer-events:none;display:none}
+#action-hud.visible{display:block}
+.hud-top{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:8px 16px;background:linear-gradient(180deg,rgba(0,0,0,.6),transparent);pointer-events:none}
+.hud-top .ht-left{display:flex;gap:12px;align-items:center;font-size:13px;font-weight:700}
+.hud-top .ht-right{display:flex;gap:12px;align-items:center}
+.hud-hearts{font-size:18px;letter-spacing:2px}
+.hud-learn{font-size:15px;font-weight:800}
+.hud-bar{position:absolute;top:38px;left:16px;right:16px;height:6px;background:rgba(0,0,0,.4);border-radius:3px}
+.hud-bar-fill{height:100%;background:linear-gradient(90deg,var(--chips),#6db3f8);border-radius:3px;transition:width .3s}
+.hud-buffs{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);display:flex;gap:10px;font-size:11px;font-weight:700;opacity:.7}
+
+/* Shop */
+#shop{background:radial-gradient(ellipse at 50% 40%,var(--felt),var(--bg) 70%,var(--bg2));justify-content:flex-start;padding:16px}
+.shop-title{font-size:28px;font-weight:900;margin-bottom:2px;letter-spacing:1px}
+.shop-money{color:var(--gold);font-size:20px;font-weight:800;margin-bottom:12px}
+.shop-items{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:16px}
+.shop-item{width:125px;padding:10px;border-radius:11px;background:var(--panel);border:2px solid rgba(255,255,255,.1);cursor:pointer;text-align:center;transition:all .15s}
+.shop-item:hover{border-color:var(--gold);transform:translateY(-3px)}
+.shop-item.sold{opacity:.3;pointer-events:none}
+.si-type{font-size:8px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px}
+.si-emoji{font-size:26px;margin-bottom:3px}
+.si-name{font-size:12px;font-weight:700;margin-bottom:2px}
+.si-desc{font-size:9px;color:var(--dim);margin-bottom:5px;min-height:22px}
+.si-cost{color:var(--gold);font-weight:800;font-size:14px}
+.shop-row{display:flex;gap:10px;justify-content:center;margin-bottom:12px}
+.your-jokers{margin-top:6px;text-align:center}
+.your-jokers h3{font-size:12px;color:var(--dim);margin-bottom:6px}
+.your-jokers .jk-row{display:flex;gap:7px;justify-content:center;flex-wrap:wrap}
+
+/* Results */
+#results{background:rgba(0,0,0,.7);z-index:10}
+.res-box{text-align:center;padding:32px 50px;animation:popIn .4s ease}
+.res-title{font-size:32px;font-weight:900;margin-bottom:8px}
+.res-sub{font-size:16px;color:var(--dim);margin-bottom:6px}
+.res-money{font-size:18px;margin-bottom:16px}
+.res-money span{color:var(--gold);font-weight:800}
+
+/* End screens */
+.go-title{font-size:40px;font-weight:900;margin-bottom:8px;animation:popIn .5s ease}
+.go-sub{font-size:16px;color:var(--dim);margin-bottom:20px}
+
+@keyframes popIn{0%{opacity:0;transform:scale(.5)}70%{transform:scale(1.1)}100%{opacity:1;transform:scale(1)}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+.shake{animation:shake .35s ease}
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="game" width="960" height="700"></canvas>
+  <div class="screen" id="menu"></div>
+  <div class="screen" id="blind-intro"></div>
+  <div class="screen" id="cards"></div>
+  <div class="screen" id="score-overlay"></div>
+  <div class="screen" id="buff-summary"></div>
+  <div id="action-hud"></div>
+  <div class="screen" id="results"></div>
+  <div class="screen" id="shop"></div>
+  <div class="screen" id="game-over"></div>
+  <div class="screen" id="win"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════
+const CW=960,CH=700;
+const SUITS=[
+  {name:'Katana',sym:'♠',css:'s-katana',color:'var(--katana)',hex:'#fe5f55'},
+  {name:'Wakizashi',sym:'♥',css:'s-waki',color:'var(--waki)',hex:'#4c9bf5'},
+  {name:'Tanto',sym:'♦',css:'s-tanto',color:'var(--tanto)',hex:'#44d68e'},
+  {name:'Nodachi',sym:'♣',css:'s-nodachi',color:'var(--nodachi)',hex:'#b86ef0'},
+];
+const RANKS=['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+const RANK_CHIPS=[2,3,4,5,6,7,8,9,10,10,10,10,11];
+const HAND_DEFS={
+  STRAIGHT_FLUSH:{name:"Master's Edge",base:[100,8],up:[40,3]},
+  FOUR_KIND:{name:"Quad Strike",base:[60,7],up:[30,3]},
+  FULL_HOUSE:{name:"Full Dojo",base:[40,4],up:[15,2]},
+  FLUSH:{name:"Style Mastery",base:[35,4],up:[15,2]},
+  STRAIGHT:{name:"Flowing Combo",base:[30,4],up:[15,2]},
+  THREE_KIND:{name:"Triple Slash",base:[30,3],up:[10,2]},
+  TWO_PAIR:{name:"Cross Strike",base:[20,2],up:[10,1]},
+  PAIR:{name:"Matched Pair",base:[10,2],up:[10,1]},
+  HIGH_CARD:{name:"Wild Swing",base:[5,1],up:[5,1]},
+};
+const HAND_ORDER=['STRAIGHT_FLUSH','FOUR_KIND','FULL_HOUSE','FLUSH','STRAIGHT','THREE_KIND','TWO_PAIR','PAIR','HIGH_CARD'];
+const JOKER_DEFS=[
+  {id:'iron_sensei',name:'Iron Sensei',emoji:'🥋',desc:'+4 Mult',cost:5,rarity:'C',sell:3,apply:s=>{s.mult+=4}},
+  {id:'golden_katana',name:'Golden Katana',emoji:'🗡️',desc:'+30 Chips',cost:5,rarity:'C',sell:3,apply:s=>{s.chips+=30}},
+  {id:'war_fan',name:'War Fan',emoji:'🪭',desc:'+15 Chips, +2 Mult',cost:5,rarity:'C',sell:3,apply:s=>{s.chips+=15;s.mult+=2}},
+  {id:'fortune_cookie',name:'Fortune Cookie',emoji:'🥠',desc:'Earn $4 end of round',cost:5,rarity:'C',sell:3,apply:null,roundMoney:4},
+  {id:'ronin_spirit',name:'Ronin Spirit',emoji:'👤',desc:'+10 Mult if 1 card',cost:5,rarity:'C',sell:3,apply:s=>{if(s.played===1)s.mult+=10}},
+  {id:'swift_student',name:'Swift Student',emoji:'💨',desc:'+3 Mult per card played',cost:6,rarity:'U',sell:4,apply:s=>{s.mult+=s.played*3}},
+  {id:'dojo_master',name:'Dojo Master',emoji:'🏯',desc:'×2 Mult if 4+ cards',cost:7,rarity:'U',sell:4,apply:s=>{if(s.played>=4)s.xMult*=2}},
+  {id:'sake_cup',name:'Sake Cup',emoji:'🍶',desc:'×3 Mult if exactly 2 cards',cost:7,rarity:'U',sell:4,apply:s=>{if(s.played===2)s.xMult*=3}},
+  {id:'blade_dancer',name:'Blade Dancer',emoji:'💃',desc:'+50 Chips if Flush',cost:6,rarity:'U',sell:4,apply:s=>{if(s.type==='FLUSH'||s.type==='STRAIGHT_FLUSH')s.chips+=50}},
+  {id:'bamboo_blade',name:'Bamboo Blade',emoji:'🎋',desc:'+8 Chips per card in hand',cost:6,rarity:'U',sell:4,apply:s=>{s.chips+=s.handSize*8}},
+  {id:'dragon_scale',name:'Dragon Scale',emoji:'🐉',desc:'×1.5 Mult',cost:8,rarity:'R',sell:5,apply:s=>{s.xMult*=1.5}},
+  {id:'honor_guard',name:'Honor Guard',emoji:'⛩️',desc:'+20 Chips per Joker',cost:8,rarity:'R',sell:5,apply:s=>{s.chips+=s.jokerCount*20}},
+  {id:'shadow_clone',name:'Shadow Clone',emoji:'🥷',desc:'+1 hand per round',cost:8,rarity:'R',sell:5,apply:null,bonusHands:1},
+  {id:'shoguns_helm',name:"Shogun's Helm",emoji:'⛑️',desc:'+1 discard per round',cost:7,rarity:'R',sell:5,apply:null,bonusDiscards:1},
+];
+const PLANET_DEFS=[
+  {hand:'HIGH_CARD',name:'Practice Dummy',emoji:'🎯'},
+  {hand:'PAIR',name:'Training Weights',emoji:'🏋️'},
+  {hand:'TWO_PAIR',name:'Sparring Match',emoji:'🤼'},
+  {hand:'THREE_KIND',name:'Kata Form',emoji:'🥋'},
+  {hand:'STRAIGHT',name:'Bamboo Grove',emoji:'🎋'},
+  {hand:'FLUSH',name:'Zen Garden',emoji:'🧘'},
+  {hand:'FULL_HOUSE',name:'War Room',emoji:'🏰'},
+  {hand:'FOUR_KIND',name:'Dragon Shrine',emoji:'⛩️'},
+  {hand:'STRAIGHT_FLUSH',name:'Sacred Temple',emoji:'🛕'},
+];
+// Per ante: [students, baseSpeed, swordLen, scoreTarget] for small/big/boss
+// Score = raw chips earned in dojo × card-power multiplier (Balatro-style)
+const ANTE_CFG=[
+  {stu:[2,3,4],  spd:1.2, swd:32, tgt:[200,350,500]},
+  {stu:[3,4,5],  spd:1.4, swd:34, tgt:[600,1000,1500]},
+  {stu:[4,5,6],  spd:1.6, swd:36, tgt:[1500,2500,3800]},
+  {stu:[5,6,7],  spd:1.7, swd:38, tgt:[3500,5500,8000]},
+  {stu:[6,7,8],  spd:1.9, swd:40, tgt:[7000,11000,16000]},
+  {stu:[7,8,9],  spd:2.0, swd:42, tgt:[14000,21000,30000]},
+  {stu:[8,9,10], spd:2.2, swd:44, tgt:[25000,38000,52000]},
+  {stu:[9,10,12],spd:2.4, swd:46, tgt:[40000,58000,80000]},
+];
+const BOSS_BLINDS=[
+  {name:'The Student',desc:'Teacher moves slower',eff:'slowTeacher'},
+  {name:'The Ronin',desc:'Students chase you',eff:'chase'},
+  {name:'The Shogun',desc:'Longer swords',eff:'longSwords'},
+  {name:'The Ninja',desc:'Students are invisible',eff:'invisible'},
+  {name:'The Dragon',desc:'Learn radius halved',eff:'halfRadius'},
+  {name:'The Demon',desc:'No shields',eff:'noShield'},
+];
+const BLIND_NAMES=['Small Blind','Big Blind','Boss Blind'];
+const STUDENT_COLORS=['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#e84393','#00cec9','#fdcb6e','#6c5ce7','#fab1a0'];
+const SWING_PATTERNS=[
+  (t,s)=>Math.sin(t*s*.8)*1.2,
+  (t,s)=>Math.sin(t*s*2)*.7,
+  (t,s)=>Math.sin(t*s*1.2)*Math.cos(t*s*.5)*1.1,
+  (t,s)=>(Math.sin(t*s*3)>.3?1:-1)*.6,
+  (t,s)=>Math.sin(t*s*1.5+Math.cos(t*s*.7)*2),
+  (t,s)=>Math.cos(t*s*1.8)*.9,
+];
+const DOJO_TOP=65,DOJO_BOT=CH-45;
+
+// ═══════════════════════════════════════
+// GAME STATE
+// ═══════════════════════════════════════
+let G={};
+const canvas=document.getElementById('game');
+const ctx=canvas.getContext('2d');
+const keys={};
+window.addEventListener('keydown',e=>{keys[e.key]=true;if(e.key.startsWith('Arrow'))e.preventDefault()});
+window.addEventListener('keyup',e=>{keys[e.key]=false});
+
+function resetState(){
+  G={
+    screen:'menu',ante:1,blind:0,
+    deck:[],drawPile:[],discardPile:[],hand:[],selected:new Set(),
+    jokers:[],money:4,power:0,
+    handsLeft:4,discardsLeft:3,
+    handLevels:{},maxJokers:5,handSize:8,
+    shopItems:[],rerollCost:5,scoring:false,sortMode:0,
+    // Action phase
+    teacher:null,students:[],rawChips:0,blindTarget:0,
+    shieldHP:0,shieldMax:0,bonusRadius:0,scoreMult:1,teacherSpeedMult:1,
+    actionState:'',animId:null,boss:null,bossEff:null,
+    hitFlash:0,
+  };
+  HAND_ORDER.forEach(h=>G.handLevels[h]=0);
+}
+
+// ═══════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════
+function shuffle(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=0|Math.random()*(i+1);[b[i],b[j]]=[b[j],b[i]]}return b}
+function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v))}
+function rng(lo,hi){return Math.floor(Math.random()*(hi-lo+1))+lo}
+function pick(a){return a[0|Math.random()*a.length]}
+function $(id){return document.getElementById(id)}
+
+// ═══════════════════════════════════════
+// DECK & CARDS
+// ═══════════════════════════════════════
+function createDeck(){const d=[];for(let s=0;s<4;s++)for(let r=0;r<13;r++)d.push({suit:s,rank:r});return d}
+function drawCards(n){
+  const drawn=[];
+  for(let i=0;i<n;i++){
+    if(!G.drawPile.length){if(!G.discardPile.length)break;G.drawPile=shuffle(G.discardPile);G.discardPile=[]}
+    drawn.push(G.drawPile.pop());
+  }
+  return drawn;
+}
+function fillHand(){const need=G.handSize-G.hand.length;if(need>0)G.hand.push(...drawCards(need))}
+function getTotalHands(){let h=4;G.jokers.forEach(j=>{const d=JOKER_DEFS.find(x=>x.id===j.id);if(d?.bonusHands)h+=d.bonusHands});return h}
+function getTotalDiscards(){let d=3;G.jokers.forEach(j=>{const def=JOKER_DEFS.find(x=>x.id===j.id);if(def?.bonusDiscards)d+=def.bonusDiscards});return d}
+
+// ═══════════════════════════════════════
+// HAND EVALUATION
+// ═══════════════════════════════════════
+function evaluateHand(cards){
+  if(!cards||!cards.length)return null;
+  const n=cards.length;
+  const rc={};cards.forEach(c=>{rc[c.rank]=(rc[c.rank]||0)+1});
+  const counts=Object.entries(rc).sort((a,b)=>b[1]-a[1]||+b[0]-+a[0]);
+  const isFlush=n>=5&&cards.every(c=>c.suit===cards[0].suit);
+  let isStraight=false;
+  if(n>=5){
+    const vals=[...new Set(cards.map(c=>c.rank))].sort((a,b)=>a-b);
+    if(vals.length>=5){let cur=1;for(let i=1;i<vals.length;i++){if(vals[i]===vals[i-1]+1){cur++;if(cur>=5)isStraight=true}else cur=1}
+      if(!isStraight&&vals.includes(12)&&vals.includes(0)&&vals.includes(1)&&vals.includes(2)&&vals.includes(3))isStraight=true;
+    }
+  }
+  if(isFlush&&isStraight)return{type:'STRAIGHT_FLUSH',scoring:[...cards]};
+  if(counts[0][1]>=4){const r=+counts[0][0];return{type:'FOUR_KIND',scoring:cards.filter(c=>c.rank===r)}}
+  if(counts[0][1]>=3&&counts.length>=2&&counts[1][1]>=2)return{type:'FULL_HOUSE',scoring:[...cards]};
+  if(isFlush)return{type:'FLUSH',scoring:[...cards]};
+  if(isStraight)return{type:'STRAIGHT',scoring:[...cards]};
+  if(counts[0][1]>=3){const r=+counts[0][0];return{type:'THREE_KIND',scoring:cards.filter(c=>c.rank===r)}}
+  if(counts[0][1]>=2&&counts.length>=2&&counts[1][1]>=2){const r1=+counts[0][0],r2=+counts[1][0];return{type:'TWO_PAIR',scoring:cards.filter(c=>c.rank===r1||c.rank===r2)}}
+  if(counts[0][1]>=2){const r=+counts[0][0];return{type:'PAIR',scoring:cards.filter(c=>c.rank===r)}}
+  return{type:'HIGH_CARD',scoring:[cards.reduce((a,b)=>a.rank>b.rank?a:b)]};
+}
+
+// ═══════════════════════════════════════
+// SCORING
+// ═══════════════════════════════════════
+function calcScore(type,scoringCards,playedCards){
+  const d=HAND_DEFS[type],l=G.handLevels[type]||0;
+  let chips=d.base[0]+l*d.up[0],mult=d.base[1]+l*d.up[1],xMult=1;
+  scoringCards.forEach(c=>{chips+=RANK_CHIPS[c.rank]});
+  const ctx={chips,mult,xMult,type,played:playedCards.length,handSize:G.hand.length-playedCards.length,jokerCount:G.jokers.length};
+  G.jokers.forEach(j=>{const def=JOKER_DEFS.find(x=>x.id===j.id);if(def?.apply)def.apply(ctx)});
+  return{chips:Math.round(ctx.chips),mult:Math.round(ctx.mult*10)/10,xMult:Math.round(ctx.xMult*10)/10,total:Math.max(0,Math.floor(ctx.chips*ctx.mult*ctx.xMult))};
+}
+function powerToBuffs(pwr){
+  return{
+    shield:Math.min(5,Math.floor(pwr/200)),
+    radius:Math.min(60,Math.floor(pwr/15)),
+    scoreMult:Math.round((1+pwr/100)*10)/10,
+  };
+}
+
+// ═══════════════════════════════════════
+// CARD PHASE FLOW
+// ═══════════════════════════════════════
+function getSelectedCards(){return[...G.selected].sort((a,b)=>a-b).map(i=>G.hand[i])}
+function toggleCard(i){if(G.scoring)return;if(G.selected.has(i))G.selected.delete(i);else if(G.selected.size<5)G.selected.add(i);renderCards()}
+function sortHand(){if(G.scoring)return;G.sortMode=(G.sortMode||0)+1;if(G.sortMode%2===1)G.hand.sort((a,b)=>a.rank-b.rank);else G.hand.sort((a,b)=>a.suit-b.suit||a.rank-b.rank);G.selected.clear();renderCards()}
+function playHand(){
+  if(G.scoring||G.handsLeft<=0)return;
+  const sel=getSelectedCards();
+  if(sel.length<1||sel.length>5)return;
+  const ev=evaluateHand(sel);if(!ev)return;
+  const sc=calcScore(ev.type,ev.scoring,sel);
+  G.scoring=true;G.handsLeft--;
+  const selSet=new Set(G.selected);
+  const remaining=[];G.hand.forEach((c,i)=>{if(selSet.has(i))G.discardPile.push(c);else remaining.push(c)});
+  G.hand=remaining;G.selected.clear();
+  showScoreOverlay(ev.type,sc,()=>{
+    G.power+=sc.total;G.scoring=false;
+    if(G.handsLeft<=0){enterDojo()}
+    else{fillHand();renderCards()}
+  });
+}
+function discardCards(){
+  if(G.scoring||G.discardsLeft<=0)return;
+  const sel=getSelectedCards();if(!sel.length||sel.length>5)return;
+  G.discardsLeft--;
+  const selSet=new Set(G.selected);const remaining=[];
+  G.hand.forEach((c,i)=>{if(selSet.has(i))G.discardPile.push(c);else remaining.push(c)});
+  G.hand=remaining;G.selected.clear();fillHand();renderCards();
+}
+
+// ═══════════════════════════════════════
+// ENTER DOJO (card → action transition)
+// ═══════════════════════════════════════
+function enterDojo(){
+  const buffs=powerToBuffs(G.power);
+  G.shieldMax=buffs.shield;G.shieldHP=buffs.shield;
+  G.bonusRadius=buffs.radius;G.scoreMult=buffs.scoreMult;
+  if(G.bossEff==='noShield'){G.shieldHP=0;G.shieldMax=0}
+  if(G.bossEff==='halfRadius')G.bonusRadius=Math.floor(G.bonusRadius/2);
+  showScreen('buff-summary');renderBuffSummary();
+  setTimeout(()=>{startAction()},2200);
+}
+
+// ═══════════════════════════════════════
+// ACTION PHASE — ENTITIES
+// ═══════════════════════════════════════
+function createTeacher(){
+  return{x:CW/2,y:DOJO_TOP+60,w:34,h:34,speed:4.5};
+}
+function createStudent(i,total){
+  const spacing=(CW-120)/(total+1);
+  const cfg=ANTE_CFG[G.ante-1];
+  const baseSpd=cfg.spd;
+  const spd=baseSpd+Math.random()*.8;
+  const patIdx=rng(0,SWING_PATTERNS.length-1);
+  const swSpd=.6+Math.random()*1.0;
+  let sLen=cfg.swd+Math.random()*14;
+  if(G.bossEff==='longSwords')sLen*=1.5;
+  return{
+    x:60+spacing*(i+1),y:DOJO_BOT,baseX:60+spacing*(i+1),
+    w:24,h:24,speed:spd,swordLen:sLen,swordAngle:0,
+    swingPattern:SWING_PATTERNS[patIdx],swingSpeed:swSpd,
+    time:Math.random()*100,color:STUDENT_COLORS[i%STUDENT_COLORS.length],
+    goingUp:true,completed:false,wobble:.3+Math.random()*.5,learning:false,
+    chipValue:10+G.ante*4+Math.floor(Math.random()*8),
+  };
+}
+
+// ═══════════════════════════════════════
+// ACTION PHASE — GAME LOOP
+// ═══════════════════════════════════════
+function startAction(){
+  const cfg=ANTE_CFG[G.ante-1];
+  const stuCount=cfg.stu[G.blind];
+  G.blindTarget=cfg.tgt[G.blind];G.rawChips=0;
+  G.teacher=createTeacher();G.students=[];
+  G.teacherSpeedMult=G.bossEff==='slowTeacher'?.6:1;
+  for(let i=0;i<stuCount;i++)G.students.push(createStudent(i,stuCount));
+  G.actionState='playing';G.hitFlash=0;
+  showScreen(null);
+  canvas.classList.add('visible');
+  $('action-hud').classList.add('visible');
+  renderActionHUD();
+  if(G.animId)cancelAnimationFrame(G.animId);
+  actionLoop();
+}
+function actionLoop(){
+  actionUpdate();actionDraw();renderActionHUD();
+  if(G.actionState==='playing')G.animId=requestAnimationFrame(actionLoop);
+}
+function actionUpdate(){
+  if(G.actionState!=='playing')return;
+  const t=G.teacher,ts=t.speed*G.teacherSpeedMult;
+  if(keys.ArrowLeft)t.x-=ts;if(keys.ArrowRight)t.x+=ts;
+  if(keys.ArrowUp)t.y-=ts;if(keys.ArrowDown)t.y+=ts;
+  t.x=clamp(t.x,50,CW-50);t.y=clamp(t.y,DOJO_TOP+10,DOJO_BOT-30);
+  const learnR=120+G.bonusRadius;
+  let allDone=true;
+  for(const s of G.students){
+    if(s.completed){continue}
+    allDone=false;
+    // Movement
+    if(s.goingUp){s.y-=s.speed;if(s.y<=DOJO_TOP+80)s.goingUp=false}
+    else{s.y+=s.speed;if(s.y>=DOJO_BOT){s.y=DOJO_BOT;s.completed=true;continue}}
+    // Chase boss
+    if(G.bossEff==='chase'){
+      const dx=t.x-s.x;s.baseX+=Math.sign(dx)*.4;s.baseX=clamp(s.baseX,60,CW-60);
+    }
+    s.x=s.baseX+Math.sin(s.time*s.wobble)*18;
+    // Swing
+    s.time+=.016;
+    const raw=s.swingPattern(s.time,s.swingSpeed);
+    s.swordAngle=raw*Math.PI*.8-Math.PI/2;
+    // Teach — earn raw chips (closer = bonus)
+    const dx=s.x-t.x,dy=s.y-t.y,dist=Math.sqrt(dx*dx+dy*dy);
+    s.learning=dist<learnR;
+    if(s.learning){const close=dist<learnR/2?1.5:1;G.rawChips+=s.chipValue*close/60}
+    // Collision
+    if(checkHit(s,t)){
+      if(G.shieldHP>0){G.shieldHP--;G.hitFlash=15}
+      else{G.actionState='lost';endAction(false);return}
+    }
+  }
+  if(G.hitFlash>0)G.hitFlash--;
+  if(allDone){
+    const finalScore=Math.floor(G.rawChips*G.scoreMult);
+    G.actionState=finalScore>=G.blindTarget?'won':'lost';
+    endAction(G.actionState==='won');
+  }
+}
+function checkHit(s,t){
+  const sx=s.x,sy=s.y-s.h/2;
+  const tipX=sx+Math.cos(s.swordAngle)*s.swordLen;
+  const tipY=sy+Math.sin(s.swordAngle)*s.swordLen;
+  const midX=sx+Math.cos(s.swordAngle)*s.swordLen*.5;
+  const midY=sy+Math.sin(s.swordAngle)*s.swordLen*.5;
+  return ptInRect(tipX,tipY,t)||ptInRect(midX,midY,t);
+}
+function ptInRect(px,py,r){return px>r.x-r.w/2&&px<r.x+r.w/2&&py>r.y-r.h/2&&py<r.y+r.h/2}
+function endAction(won){
+  cancelAnimationFrame(G.animId);
+  // Final draw
+  actionDraw();renderActionHUD();
+  setTimeout(()=>{
+    canvas.classList.remove('visible');
+    $('action-hud').classList.remove('visible');
+    if(won){
+      const base=3+G.blind;
+      const interest=Math.min(5,Math.floor(G.money/5));
+      let jMoney=0;G.jokers.forEach(j=>{const d=JOKER_DEFS.find(x=>x.id===j.id);if(d?.roundMoney)jMoney+=d.roundMoney});
+      const earned=base+interest+jMoney;G.money+=earned;
+      if(G.ante>=8&&G.blind>=2){showScreen('win');renderWin();return}
+      showScreen('results');renderResults(true,earned,base,interest,jMoney);
+    } else {
+      showScreen('game-over');renderGameOver();
+    }
+  },1200);
+}
+
+// ═══════════════════════════════════════
+// ACTION PHASE — DRAWING
+// ═══════════════════════════════════════
+function actionDraw(){
+  const t=G.teacher;const learnR=120+G.bonusRadius;
+  // Floor
+  ctx.fillStyle='#c8a96e';ctx.fillRect(0,0,CW,CH);
+  ctx.strokeStyle='#b89a5a';ctx.lineWidth=1;
+  for(let y=0;y<CH;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(CW,y);ctx.stroke()}
+  for(let x=0;x<CW;x+=60){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,CH);ctx.stroke()}
+  // Walls
+  ctx.fillStyle='#8b6914';ctx.fillRect(0,0,CW,DOJO_TOP-10);ctx.fillRect(0,DOJO_BOT+20,CW,CH-DOJO_BOT-20);
+  ctx.fillStyle='#a07d1a';for(let x=0;x<CW;x+=70){ctx.fillRect(x,0,34,DOJO_TOP-10);ctx.fillRect(x,DOJO_BOT+20,34,CH-DOJO_BOT-20)}
+  // Banner
+  ctx.fillStyle='#c0392b';ctx.fillRect(CW/2-80,10,160,36);
+  ctx.fillStyle='#f0e6d2';ctx.font='bold 16px serif';ctx.textAlign='center';ctx.fillText('道場',CW/2,34);
+  // Learn aura
+  if(t){
+    const g=ctx.createRadialGradient(t.x,t.y,0,t.x,t.y,learnR);
+    g.addColorStop(0,'rgba(241,196,15,.12)');g.addColorStop(.7,'rgba(241,196,15,.06)');g.addColorStop(1,'rgba(241,196,15,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(t.x,t.y,learnR,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='rgba(241,196,15,.3)';ctx.lineWidth=1.5;ctx.setLineDash([6,4]);
+    ctx.beginPath();ctx.arc(t.x,t.y,learnR,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+  }
+  // Students
+  for(const s of G.students){
+    if(s.completed)continue;
+    const vis=G.bossEff!=='invisible';
+    // Shadow
+    ctx.fillStyle='rgba(0,0,0,.15)';ctx.beginPath();ctx.ellipse(s.x,s.y+s.h/2+4,16,5,0,0,Math.PI*2);ctx.fill();
+    if(vis){
+      ctx.fillStyle=s.color;ctx.beginPath();ctx.arc(s.x,s.y,s.w/2,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#fad7a0';ctx.beginPath();ctx.arc(s.x,s.y-15,8,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#fff';ctx.fillRect(s.x-9,s.y+2,18,3);
+    }
+    // Sword (always visible)
+    const sx=s.x,sy=s.y-s.h/2;
+    const tipX=sx+Math.cos(s.swordAngle)*s.swordLen;
+    const tipY=sy+Math.sin(s.swordAngle)*s.swordLen;
+    ctx.strokeStyle='rgba(200,200,200,.2)';ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(tipX,tipY);ctx.stroke();
+    ctx.strokeStyle='#bdc3c7';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(tipX,tipY);ctx.stroke();
+    ctx.strokeStyle='#8b4513';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(sx,sy);
+    const hx=sx+Math.cos(s.swordAngle)*8,hy=sy+Math.sin(s.swordAngle)*8;
+    ctx.lineTo(hx,hy);ctx.stroke();
+    ctx.fillStyle='#f1c40f';ctx.beginPath();ctx.arc(hx,hy,3,0,Math.PI*2);ctx.fill();
+    if(s.learning&&!s.completed){ctx.fillStyle='rgba(241,196,15,.9)';ctx.font='bold 11px sans-serif';ctx.textAlign='center';ctx.fillText('📖+'+s.chipValue,s.x,s.y-26)}
+    else if(!s.completed&&vis){ctx.fillStyle='rgba(255,255,255,.35)';ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.fillText(s.chipValue,s.x,s.y-26)}
+  }
+  // Teacher
+  if(t){
+    ctx.fillStyle='#2c3e50';ctx.beginPath();ctx.arc(t.x,t.y,t.w/2,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#1a252f';ctx.fillRect(t.x-14,t.y+10,28,16);
+    ctx.fillStyle='#fad7a0';ctx.beginPath();ctx.arc(t.x,t.y-13,11,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#fff';ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.fillText('先生',t.x,t.y+3);
+    // Shield pips
+    for(let i=0;i<G.shieldMax;i++){
+      ctx.fillStyle=i<G.shieldHP?'#e74c3c':'rgba(255,255,255,.2)';
+      ctx.font='14px sans-serif';ctx.fillText('❤️',t.x-G.shieldMax*8+i*16,t.y-28);
+    }
+  }
+  // Hit flash
+  if(G.hitFlash>0){ctx.fillStyle=`rgba(255,0,0,${G.hitFlash/30})`;ctx.fillRect(0,0,CW,CH)}
+  // Win/loss overlay
+  const fs=Math.floor(G.rawChips*G.scoreMult);
+  if(G.actionState==='won'){
+    ctx.fillStyle='rgba(0,0,0,.4)';ctx.fillRect(0,0,CW,CH);
+    ctx.fillStyle='#2ecc71';ctx.font='bold 36px sans-serif';ctx.textAlign='center';ctx.fillText('✓ Blind Cleared!',CW/2,CH/2-20);
+    ctx.font='bold 18px sans-serif';ctx.fillStyle='#e8e1d5';ctx.fillText(Math.floor(G.rawChips)+' × '+G.scoreMult.toFixed(1)+' = '+fs.toLocaleString(),CW/2,CH/2+16);
+  } else if(G.actionState==='lost'){
+    ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(0,0,CW,CH);
+    ctx.fillStyle='#fe5f55';ctx.font='bold 36px sans-serif';ctx.textAlign='center';
+    ctx.fillText(fs<G.blindTarget?'✗ Score Too Low!':'✗ Struck Down!',CW/2,CH/2-10);
+    ctx.font='bold 16px sans-serif';ctx.fillStyle='#e8e1d5';ctx.fillText(fs.toLocaleString()+' / '+G.blindTarget.toLocaleString(),CW/2,CH/2+20);
+  }
+}
+
+// ═══════════════════════════════════════
+// SHOP
+// ═══════════════════════════════════════
+function generateShop(){G.rerollCost=5;genShopItems()}
+function genShopItems(){
+  G.shopItems=[];
+  const avail=JOKER_DEFS.filter(j=>!G.jokers.find(o=>o.id===j.id));
+  const sh=shuffle(avail);
+  for(let i=0;i<Math.min(2,sh.length);i++)G.shopItems.push({type:'joker',def:sh[i],sold:false});
+  G.shopItems.push({type:'planet',def:pick(PLANET_DEFS),sold:false,cost:3});
+}
+function buyShopItem(idx){
+  const item=G.shopItems[idx];if(!item||item.sold)return;
+  const cost=item.type==='joker'?item.def.cost:item.cost;
+  if(G.money<cost)return;
+  if(item.type==='joker'){if(G.jokers.length>=G.maxJokers)return;G.money-=cost;G.jokers.push({id:item.def.id})}
+  else{G.money-=cost;G.handLevels[item.def.hand]=(G.handLevels[item.def.hand]||0)+1}
+  item.sold=true;renderShop();
+}
+function sellJoker(idx){
+  const j=G.jokers[idx];const d=JOKER_DEFS.find(x=>x.id===j.id);
+  G.money+=(d?d.sell:2);G.jokers.splice(idx,1);renderShop();
+}
+function rerollShop(){if(G.money<G.rerollCost)return;G.money-=G.rerollCost;G.rerollCost=Math.min(G.rerollCost+1,10);genShopItems();renderShop()}
+function nextBlind(){
+  if(G.blind<2)G.blind++;else{G.ante++;G.blind=0}
+  showScreen('blind-intro');renderBlindIntro();
+}
+
+// ═══════════════════════════════════════
+// GAME FLOW
+// ═══════════════════════════════════════
+function startGame(){
+  resetState();G.deck=createDeck();
+  showScreen('blind-intro');renderBlindIntro();
+}
+function startBlind(){
+  G.drawPile=shuffle([...G.deck]);G.discardPile=[];G.hand=[];G.selected.clear();
+  G.power=0;G.handsLeft=getTotalHands();G.discardsLeft=getTotalDiscards();G.scoring=false;
+  // Pick boss if boss blind
+  if(G.blind===2){G.boss=pick(BOSS_BLINDS);G.bossEff=G.boss.eff}else{G.boss=null;G.bossEff=null}
+  fillHand();showScreen('cards');renderCards();
+}
+
+// ═══════════════════════════════════════
+// RENDERING — SCREENS
+// ═══════════════════════════════════════
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  if(id)$(id).classList.add('active');G.screen=id;
+}
+function renderMenu(){
+  $('menu').innerHTML=`
+    <div class="title">⚔️ Beginners with Swords</div>
+    <div class="subtitle">A Roguelike Deck-Builder Dojo</div>
+    <div class="howto">Play poker hands with sword cards to power up your teacher,<br>then survive the dojo dodging sword-swinging students!<br><br>
+    <b>Cards:</b> Select up to 5 cards → Play Hand for power<br>
+    <b>Dojo:</b> Arrow keys to dodge • Stay near students to teach them<br>
+    <b>Goal:</b> Earn chips in the dojo × your card power to beat each blind's target</div>
+    <button class="btn btn-play" onclick="startGame()">Draw Your Blade</button>`;
+}
+function renderBlindIntro(){
+  const cfg=ANTE_CFG[G.ante-1];const tgt=cfg.tgt[G.blind];const stuN=cfg.stu[G.blind];
+  const isBoss=G.blind===2;
+  const bName=isBoss?pick(BOSS_BLINDS).name:'';
+  const bDesc=isBoss?(G.boss||pick(BOSS_BLINDS)).desc:'';
+  $('blind-intro').innerHTML=`<div class="bi-box">
+    <div class="bi-type">${BLIND_NAMES[G.blind]} · Ante ${G.ante}</div>
+    <div class="bi-name">${isBoss?bName:BLIND_NAMES[G.blind]}</div>
+    <div class="bi-desc">${isBoss?bDesc:stuN+' students'}</div>
+    <div class="bi-target">Score at least <span>${tgt.toLocaleString()}</span></div>
+    <button class="btn btn-play" onclick="startBlind()">Prepare Cards</button>
+  </div>`;
+}
+function renderCards(){
+  const sel=getSelectedCards();const ev=sel.length?evaluateHand(sel):null;
+  const buffs=powerToBuffs(G.power);
+  let prevHTML='<span style="color:var(--dim)">Select cards to play</span>';
+  if(ev){
+    const sc=calcScore(ev.type,ev.scoring,sel);const d=HAND_DEFS[ev.type];const l=G.handLevels[ev.type]||0;
+    const fm=Math.round(sc.mult*sc.xMult*10)/10;
+    prevHTML=`<span class="preview-type">${d.name}${l>0?' Lv.'+(l+1):''}</span> — <span class="preview-chips">${sc.chips}</span> <span style="color:var(--dim)">×</span> <span class="preview-mult">${fm}</span> <span style="color:var(--dim)">=</span> <span style="color:#fff">+${sc.total.toLocaleString()} power</span>`;
+  }
+  let jHTML='';
+  G.jokers.forEach(j=>{const d=JOKER_DEFS.find(x=>x.id===j.id);jHTML+=`<div class="joker-card"><div class="j-emoji">${d.emoji}</div><div class="j-name">${d.name}</div><div class="tooltip">${d.desc}</div></div>`});
+  for(let i=G.jokers.length;i<G.maxJokers;i++)jHTML+=`<div class="joker-slot">Empty</div>`;
+  let cardsHTML='';
+  G.hand.forEach((c,i)=>{const s=SUITS[c.suit];const sel2=G.selected.has(i)?'selected':'';
+    cardsHTML+=`<div class="card ${sel2} ${s.css}" onclick="toggleCard(${i})"><div class="c-rank" style="color:${s.color}">${RANKS[c.rank]}</div><div class="c-suit-sym" style="color:${s.color}">${s.sym}</div><div class="c-bot" style="color:${s.color}">${RANKS[c.rank]}${s.sym}</div><div class="c-chips">+${RANK_CHIPS[c.rank]}</div></div>`;
+  });
+  const canPlay=sel.length>=1&&sel.length<=5&&G.handsLeft>0;
+  const canDiscard=sel.length>0&&sel.length<=5&&G.discardsLeft>0;
+  $('cards').innerHTML=`
+    <div class="top-bar"><div class="ante">Ante ${G.ante} · ${BLIND_NAMES[G.blind]}${G.boss?' — <span style="color:var(--mult)">'+G.boss.name+'</span>':''}</div><div class="money">💰 $${G.money}</div></div>
+    <div class="joker-area">${jHTML}</div>
+    <div class="power-bar">
+      <span>⚡</span><span class="power-val">${G.power}</span><span style="font-size:13px;color:var(--dim)">Power</span>
+      <span class="buff-tag">🛡️ ${buffs.shield} HP</span>
+      <span class="buff-tag">📖 +${buffs.radius} radius</span>
+      <span class="buff-tag">⚔️ ×${buffs.scoreMult} score mult</span>
+    </div>
+    <div class="hand-area">${cardsHTML}</div>
+    <div class="hand-preview">${prevHTML}</div>
+    <div class="action-bar">
+      <button class="btn btn-play" onclick="playHand()" ${canPlay?'':'disabled'}>Play Hand</button>
+      <span class="hands-left" style="color:var(--chips)">🃏 ${G.handsLeft}</span>
+      <button class="btn btn-red btn-sm" onclick="discardCards()" ${canDiscard?'':'disabled'}>Discard</button>
+      <span class="discards-left" style="color:var(--mult)">✖ ${G.discardsLeft}</span>
+      <button class="btn btn-dark btn-sm" onclick="sortHand()">Sort</button>
+      <span class="deck-count">Deck: ${G.drawPile.length}</span>
+      <button class="btn btn-green btn-sm" onclick="enterDojo()" style="margin-left:12px">Enter Dojo →</button>
+    </div>`;
+}
+function showScoreOverlay(type,score,cb){
+  const d=HAND_DEFS[type];const l=G.handLevels[type]||0;
+  const fm=Math.round(score.mult*score.xMult*10)/10;
+  const ov=$('score-overlay');ov.classList.add('active');
+  ov.innerHTML=`<div class="so-hand">${d.name}${l>0?' Lv.'+(l+1):''}</div>
+    <div class="so-calc"><span class="c">${score.chips}</span><span class="x">×</span><span class="m">${fm}</span></div>
+    <div class="so-total" id="so-num">0</div>
+    <div class="so-power">⚡ ${G.power} → ${G.power+score.total}</div>`;
+  const el=$('so-num');const dur=600,start=performance.now(),tgt=score.total;
+  function tick(now){const t=clamp((now-start)/dur,0,1);const e=1-Math.pow(1-t,3);el.textContent=Math.floor(e*tgt).toLocaleString();
+    if(t<1)requestAnimationFrame(tick);else{el.textContent=tgt.toLocaleString();setTimeout(()=>{ov.classList.remove('active');cb()},500)}}
+  setTimeout(()=>requestAnimationFrame(tick),300);
+}
+function renderBuffSummary(){
+  const b=powerToBuffs(G.power);
+  const tgt=ANTE_CFG[G.ante-1].tgt[G.blind];
+  $('buff-summary').innerHTML=`<div class="bs-box">
+    <div class="bs-title">⚡ Power: ${G.power}</div>
+    <div class="bs-buffs">
+      <div class="bs-buff"><div class="bb-icon">🛡️</div><div class="bb-val">${G.bossEff==='noShield'?'<s>'+b.shield+'</s> 0':b.shield} HP</div><div class="bb-label">Shield</div></div>
+      <div class="bs-buff"><div class="bb-icon">📖</div><div class="bb-val">+${G.bossEff==='halfRadius'?Math.floor(b.radius/2):b.radius}</div><div class="bb-label">Learn Radius</div></div>
+      <div class="bs-buff"><div class="bb-icon">⚔️</div><div class="bb-val" style="color:var(--mult)">×${b.scoreMult}</div><div class="bb-label">Score Multiplier</div></div>
+    </div>
+    <div style="font-size:13px;color:var(--dim);margin-top:8px">Target: <span style="color:var(--chips)">${tgt.toLocaleString()}</span> — Entering the dojo...</div>
+  </div>`;
+}
+function renderActionHUD(){
+  const score=Math.floor(G.rawChips*G.scoreMult);
+  const tgt=G.blindTarget;const pct=clamp(score/tgt*100,0,100);
+  let hearts='';for(let i=0;i<G.shieldMax;i++)hearts+=i<G.shieldHP?'❤️':'🖤';
+  $('action-hud').innerHTML=`
+    <div class="hud-top">
+      <div class="ht-left"><span>Ante ${G.ante} · ${BLIND_NAMES[G.blind]}</span>${G.boss?'<span style="color:var(--mult)">'+G.boss.name+'</span>':''}</div>
+      <div class="ht-right"><span class="hud-hearts">${hearts}</span>
+        <span class="hud-learn" style="color:${score>=tgt?'#2ecc71':'var(--chips)'}">
+          <span style="color:var(--chips)">${Math.floor(G.rawChips)}</span>
+          <span style="color:var(--dim)">×</span>
+          <span style="color:var(--mult)">${G.scoreMult.toFixed(1)}</span>
+          <span style="color:var(--dim)">=</span>
+          ${score.toLocaleString()} / ${tgt.toLocaleString()}
+        </span>
+      </div>
+    </div>
+    <div class="hud-bar"><div class="hud-bar-fill" style="width:${pct}%"></div></div>
+    <div class="hud-buffs">
+      <span>🛡️${G.shieldHP}</span><span>📖+${G.bonusRadius}</span><span>⚔️×${G.scoreMult.toFixed(1)}</span>
+    </div>`;
+}
+function renderResults(won,earned,base,interest,jMoney){
+  const fs=Math.floor(G.rawChips*G.scoreMult);
+  $('results').innerHTML=`<div class="res-box">
+    <div class="res-title" style="color:${won?'#2ecc71':'var(--mult)'}">${won?'✓ Blind Cleared!':'✗ Failed!'}</div>
+    <div class="res-sub" style="font-size:18px;margin-bottom:10px">
+      <span style="color:var(--chips)">${Math.floor(G.rawChips)}</span>
+      <span style="color:var(--dim)"> × </span>
+      <span style="color:var(--mult)">${G.scoreMult.toFixed(1)}</span>
+      <span style="color:var(--dim)"> = </span>
+      <span style="color:#fff;font-weight:900">${fs.toLocaleString()}</span>
+      <span style="color:var(--dim)"> / ${G.blindTarget.toLocaleString()}</span>
+    </div>
+    <div class="res-money">Earned: <span>+$${earned}</span> <span style="font-size:12px;color:var(--dim)">(Base $${base} + Interest $${interest}${jMoney?' + Jokers $'+jMoney:''})</span></div>
+    <button class="btn btn-green" onclick="openShop()">Dojo Shop →</button>
+  </div>`;
+}
+function openShop(){generateShop();showScreen('shop');renderShop()}
+function renderShop(){
+  let itemsHTML='';
+  G.shopItems.forEach((item,i)=>{
+    const sold=item.sold?'sold':'';
+    if(item.type==='joker'){const d=item.def;const can=G.money>=d.cost&&G.jokers.length<G.maxJokers&&!item.sold;
+      itemsHTML+=`<div class="shop-item ${sold}" onclick="${can?'buyShopItem('+i+')':''}" style="${can?'':'opacity:.5'}"><div class="si-type">${d.rarity==='C'?'Common':d.rarity==='U'?'Uncommon':'Rare'} Joker</div><div class="si-emoji">${d.emoji}</div><div class="si-name">${d.name}</div><div class="si-desc">${d.desc}</div><div class="si-cost">${item.sold?'SOLD':'$'+d.cost}</div></div>`}
+    else{const d=item.def;const cost=item.cost||3;const l=G.handLevels[d.hand]||0;const hd=HAND_DEFS[d.hand];const can=G.money>=cost&&!item.sold;
+      itemsHTML+=`<div class="shop-item ${sold}" onclick="${can?'buyShopItem('+i+')':''}" style="${can?'':'opacity:.5'}"><div class="si-type">Sword Scroll</div><div class="si-emoji">${d.emoji}</div><div class="si-name">${d.name}</div><div class="si-desc">Level up ${hd.name} (Lv ${l}→${l+1})</div><div class="si-cost">${item.sold?'SOLD':'$'+cost}</div></div>`}
+  });
+  let yjHTML='';G.jokers.forEach((j,i)=>{const d=JOKER_DEFS.find(x=>x.id===j.id);
+    yjHTML+=`<div class="joker-card" onclick="sellJoker(${i})" style="cursor:pointer"><div class="j-emoji">${d.emoji}</div><div class="j-name">${d.name}</div><div class="j-sell">Sell $${d.sell}</div><div class="tooltip">${d.desc}<br>Click to sell $${d.sell}</div></div>`});
+  let nextLabel='';if(G.blind<2)nextLabel=BLIND_NAMES[G.blind+1]+' (Ante '+G.ante+')';else nextLabel='Ante '+(G.ante+1)+' Small Blind';
+  const interest=Math.min(5,Math.floor(G.money/5));
+  $('shop').innerHTML=`
+    <div class="shop-title">⚔️ Dojo Shop</div>
+    <div class="shop-money">💰 $${G.money} <span style="font-size:12px;color:var(--dim)">(Interest: +$${interest}/round)</span></div>
+    <div class="shop-items">${itemsHTML}</div>
+    <div class="shop-row">
+      <button class="btn btn-dark btn-sm" onclick="rerollShop()" ${G.money>=G.rerollCost?'':'disabled'}>🔄 Reroll $${G.rerollCost}</button>
+      <button class="btn btn-green" onclick="nextBlind()">Next: ${nextLabel} →</button>
+    </div>
+    <div class="your-jokers"><h3>Your Jokers (${G.jokers.length}/${G.maxJokers}) — click to sell</h3>
+      <div class="jk-row">${yjHTML||'<span style="color:var(--dim)">None yet</span>'}</div></div>
+    <div style="margin-top:8px"><details style="color:var(--dim);font-size:11px;cursor:pointer"><summary>Hand Levels</summary>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;justify-content:center">
+        ${HAND_ORDER.map(h=>{const d=HAND_DEFS[h];const l=G.handLevels[h]||0;const c=d.base[0]+l*d.up[0];const m=d.base[1]+l*d.up[1];
+          return`<div style="background:var(--panel);padding:3px 7px;border-radius:5px;font-size:10px"><b>${d.name}</b> Lv.${l+1}<br><span style="color:var(--chips)">${c}</span>×<span style="color:var(--mult)">${m}</span></div>`}).join('')}
+      </div></details></div>`;
+}
+function renderGameOver(){
+  const fs=Math.floor(G.rawChips*G.scoreMult);
+  $('game-over').innerHTML=`
+    <div class="go-title" style="color:var(--mult)">💀 Defeated!</div>
+    <div class="go-sub">Ante ${G.ante}, ${BLIND_NAMES[G.blind]}</div>
+    <div style="font-size:16px;margin-bottom:8px">
+      <span style="color:var(--chips)">${Math.floor(G.rawChips)}</span>
+      <span style="color:var(--dim)"> × </span>
+      <span style="color:var(--mult)">${G.scoreMult.toFixed(1)}</span>
+      <span style="color:var(--dim)"> = </span>
+      <span style="color:#fff">${fs.toLocaleString()}</span>
+      <span style="color:var(--dim)"> / ${G.blindTarget.toLocaleString()}</span>
+    </div>
+    <div style="margin-bottom:16px">${G.jokers.map(j=>{const d=JOKER_DEFS.find(x=>x.id===j.id);return d?d.emoji:''}).join(' ')}</div>
+    <button class="btn btn-play" onclick="startGame()">Try Again</button>
+    <button class="btn btn-dark btn-sm" style="margin-top:8px" onclick="showScreen('menu');renderMenu()">Menu</button>`;
+}
+function renderWin(){
+  $('win').innerHTML=`
+    <div class="go-title" style="color:var(--gold)">🏆 Victory!</div>
+    <div class="go-sub">All 8 Antes conquered! Final bankroll: <span style="color:var(--gold)">$${G.money}</span></div>
+    <div style="margin-bottom:16px">${G.jokers.map(j=>{const d=JOKER_DEFS.find(x=>x.id===j.id);return d?d.emoji:''}).join(' ')}</div>
+    <button class="btn btn-gold" onclick="startGame()">Play Again</button>
+    <button class="btn btn-dark btn-sm" style="margin-top:8px" onclick="showScreen('menu');renderMenu()">Menu</button>`;
+}
+
+// ═══════════════════════════════════════
+// KEYBOARD
+// ═══════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  if(G.screen==='cards'&&!G.scoring){
+    if(e.key>='1'&&e.key<='9'){const i=+e.key-1;if(i<G.hand.length)toggleCard(i);e.preventDefault()}
+    if(e.key===' '||e.key==='Enter'){playHand();e.preventDefault()}
+    if(e.key==='d'||e.key==='D'){discardCards();e.preventDefault()}
+    if(e.key==='s'||e.key==='S'){sortHand();e.preventDefault()}
+    if(e.key==='e'||e.key==='E'){enterDojo();e.preventDefault()}
+  }
+});
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+showScreen('menu');renderMenu();
+</script>
+</body>
+</html>
