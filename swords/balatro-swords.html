@@ -56,11 +56,20 @@ canvas.visible{display:block}
 .bi-target span{color:var(--chips);font-weight:800}
 
 /* Card phase */
-#cards{justify-content:flex-start;padding:8px 0;background:radial-gradient(ellipse at 50% 40%,var(--felt),var(--bg) 70%,var(--bg2))}
+#cards{justify-content:flex-start;padding:0;background:radial-gradient(ellipse at 50% 40%,var(--felt),var(--bg) 70%,var(--bg2));flex-direction:row!important;align-items:stretch!important}
+.hand-ranks-panel{width:150px;padding:8px 6px;overflow-y:auto;background:rgba(0,0,0,.3);border-right:1px solid rgba(255,255,255,.06);flex-shrink:0}
+.hr-title{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;text-align:center;font-weight:700}
+.hr-item{padding:3px 6px;border-radius:5px;margin-bottom:2px;font-size:10px;background:rgba(255,255,255,.03);border:1px solid transparent;transition:all .15s}
+.hr-item.hr-active{background:rgba(255,215,0,.12);border-color:rgba(255,215,0,.3)}
+.hr-name{font-weight:700;font-size:10px;line-height:1.2}
+.hr-stats{font-size:9px;color:var(--dim)}
+.hr-stats .c{color:var(--chips)}.hr-stats .m{color:var(--mult)}
+.hr-lvl{font-size:8px;color:var(--dim);float:right}
+.cards-main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:8px 0;min-width:0}
 .top-bar{width:100%;display:flex;justify-content:space-between;align-items:center;padding:7px 18px;background:var(--panel);border-radius:10px;margin-bottom:6px}
 .top-bar .ante{font-weight:700;font-size:14px}
 .top-bar .money{color:var(--gold);font-weight:800;font-size:19px}
-.joker-area{width:100%;min-height:80px;display:flex;gap:7px;padding:5px 10px;background:var(--panel2);border-radius:9px;margin-bottom:6px;align-items:center;overflow-x:auto}
+.joker-area{width:100%;min-height:80px;display:flex;gap:7px;padding:5px 10px;background:var(--panel2);border-radius:9px;margin-bottom:6px;align-items:center;overflow:visible}
 .joker-slot{width:66px;height:72px;border-radius:7px;background:rgba(255,255,255,.05);border:2px dashed rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;color:var(--dim)}
 .joker-card{width:66px;height:72px;border-radius:7px;padding:3px;flex-shrink:0;background:linear-gradient(145deg,#2a2250,#1a1740);border:2px solid rgba(180,130,255,.4);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:all .15s;position:relative}
 .joker-card:hover{transform:translateY(-4px);border-color:rgba(180,130,255,.8)}
@@ -68,7 +77,10 @@ canvas.visible{display:block}
 .joker-card .j-name{font-size:7.5px;font-weight:700;text-align:center;color:#cbb8f0;line-height:1.1}
 .joker-card .j-sell{position:absolute;bottom:-8px;background:var(--gold);color:#111;font-size:8px;font-weight:800;padding:1px 5px;border-radius:4px;display:none}
 .joker-card:hover .j-sell{display:block}
-.tooltip{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#1a1a2e;color:var(--text);padding:6px 10px;border-radius:7px;font-size:10px;white-space:nowrap;pointer-events:none;z-index:200;border:1px solid rgba(255,255,255,.15);display:none}
+.tooltip{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#1a1a2e;color:var(--text);padding:8px 12px;border-radius:7px;font-size:11px;white-space:normal;width:160px;text-align:center;pointer-events:none;z-index:200;border:1px solid rgba(255,255,255,.15);display:none;line-height:1.3}
+.tooltip .tt-name{color:var(--gold);font-weight:800;font-size:12px;margin-bottom:3px}
+.tooltip .tt-desc{margin-bottom:4px}
+.tooltip .tt-meta{font-size:9px;color:var(--dim);border-top:1px solid rgba(255,255,255,.08);padding-top:3px;margin-top:3px}
 .joker-card:hover .tooltip{display:block}
 
 .power-bar{width:100%;display:flex;justify-content:center;align-items:center;gap:16px;padding:6px 16px;margin-bottom:4px;flex-wrap:wrap}
@@ -103,6 +115,18 @@ canvas.visible{display:block}
 .so-total{font-size:40px;font-weight:900;color:#fff;text-shadow:0 0 40px rgba(255,255,255,.3);animation:popIn .4s ease .2s both}
 .so-power{font-size:16px;color:var(--gold);margin-top:8px;animation:popIn .3s ease .35s both}
 
+/* Scoring animations */
+.card.scoring-highlight{border-color:var(--gold)!important;box-shadow:0 0 20px rgba(255,215,0,.4)!important;transform:translateY(-24px) scale(1.06)}
+@keyframes cardBounce{0%,100%{transform:translateY(-24px) scale(1.06)}40%{transform:translateY(-44px) scale(1.12)}}
+.card.card-bounce{animation:cardBounce .3s ease}
+@keyframes jokerPulse{0%,100%{transform:translateY(0) scale(1)}30%{transform:translateY(-10px) scale(1.15)}60%{transform:translateY(-4px) scale(1.06)}}
+.joker-card.joker-triggered{animation:jokerPulse .4s ease;border-color:rgba(255,215,0,.9)!important;box-shadow:0 0 18px rgba(255,215,0,.5)!important}
+.scoring-strip{width:100%;text-align:center;padding:6px 8px;background:rgba(0,0,0,.5);border-radius:8px}
+.ss-hand{font-size:18px;font-weight:900;color:var(--gold);margin-bottom:2px}
+.ss-calc{font-size:20px;font-weight:700;margin-bottom:2px;transition:all .2s}
+.ss-total{font-size:28px;font-weight:900;margin-top:4px}
+.ss-joker-tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:4px;background:rgba(255,215,0,.15);color:var(--gold);margin:2px;animation:popIn .2s ease}
+
 /* Buff summary */
 #buff-summary{background:rgba(0,0,0,.75);z-index:2}
 .bs-box{text-align:center;padding:30px 50px;animation:popIn .4s ease}
@@ -122,7 +146,7 @@ canvas.visible{display:block}
 .hud-hearts{font-size:18px;letter-spacing:2px}
 .hud-learn{font-size:15px;font-weight:800}
 .hud-bar{position:absolute;top:38px;left:16px;right:16px;height:6px;background:rgba(0,0,0,.4);border-radius:3px}
-.hud-bar-fill{height:100%;background:linear-gradient(90deg,var(--chips),#6db3f8);border-radius:3px;transition:width .3s}
+.hud-bar-fill{height:100%;background:linear-gradient(90deg,var(--gold),#ffe066);border-radius:3px;transition:width .3s}
 .hud-buffs{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);display:flex;gap:10px;font-size:11px;font-weight:700;opacity:.7}
 
 /* Shop */
@@ -202,17 +226,17 @@ const HAND_DEFS={
 const HAND_ORDER=['STRAIGHT_FLUSH','FOUR_KIND','FULL_HOUSE','FLUSH','STRAIGHT','THREE_KIND','TWO_PAIR','PAIR','HIGH_CARD'];
 const JOKER_DEFS=[
   {id:'iron_sensei',name:'Iron Sensei',emoji:'🥋',desc:'+4 Mult',cost:5,rarity:'C',sell:3,apply:s=>{s.mult+=4}},
-  {id:'golden_katana',name:'Golden Katana',emoji:'🗡️',desc:'+30 Chips',cost:5,rarity:'C',sell:3,apply:s=>{s.chips+=30}},
-  {id:'war_fan',name:'War Fan',emoji:'🪭',desc:'+15 Chips, +2 Mult',cost:5,rarity:'C',sell:3,apply:s=>{s.chips+=15;s.mult+=2}},
+  {id:'golden_katana',name:'Golden Katana',emoji:'🗡️',desc:'+30 Base',cost:5,rarity:'C',sell:3,apply:s=>{s.chips+=30}},
+  {id:'war_fan',name:'War Fan',emoji:'🪭',desc:'+15 Base, +2 Mult',cost:5,rarity:'C',sell:3,apply:s=>{s.chips+=15;s.mult+=2}},
   {id:'fortune_cookie',name:'Fortune Cookie',emoji:'🥠',desc:'Earn $4 end of round',cost:5,rarity:'C',sell:3,apply:null,roundMoney:4},
   {id:'ronin_spirit',name:'Ronin Spirit',emoji:'👤',desc:'+10 Mult if 1 card',cost:5,rarity:'C',sell:3,apply:s=>{if(s.played===1)s.mult+=10}},
   {id:'swift_student',name:'Swift Student',emoji:'💨',desc:'+3 Mult per card played',cost:6,rarity:'U',sell:4,apply:s=>{s.mult+=s.played*3}},
   {id:'dojo_master',name:'Dojo Master',emoji:'🏯',desc:'×2 Mult if 4+ cards',cost:7,rarity:'U',sell:4,apply:s=>{if(s.played>=4)s.xMult*=2}},
   {id:'sake_cup',name:'Sake Cup',emoji:'🍶',desc:'×3 Mult if exactly 2 cards',cost:7,rarity:'U',sell:4,apply:s=>{if(s.played===2)s.xMult*=3}},
-  {id:'blade_dancer',name:'Blade Dancer',emoji:'💃',desc:'+50 Chips if Flush',cost:6,rarity:'U',sell:4,apply:s=>{if(s.type==='FLUSH'||s.type==='STRAIGHT_FLUSH')s.chips+=50}},
-  {id:'bamboo_blade',name:'Bamboo Blade',emoji:'🎋',desc:'+8 Chips per card in hand',cost:6,rarity:'U',sell:4,apply:s=>{s.chips+=s.handSize*8}},
+  {id:'blade_dancer',name:'Blade Dancer',emoji:'💃',desc:'+50 Base if Flush',cost:6,rarity:'U',sell:4,apply:s=>{if(s.type==='FLUSH'||s.type==='STRAIGHT_FLUSH')s.chips+=50}},
+  {id:'bamboo_blade',name:'Bamboo Blade',emoji:'🎋',desc:'+8 Base per card in hand',cost:6,rarity:'U',sell:4,apply:s=>{s.chips+=s.handSize*8}},
   {id:'dragon_scale',name:'Dragon Scale',emoji:'🐉',desc:'×1.5 Mult',cost:8,rarity:'R',sell:5,apply:s=>{s.xMult*=1.5}},
-  {id:'honor_guard',name:'Honor Guard',emoji:'⛩️',desc:'+20 Chips per Joker',cost:8,rarity:'R',sell:5,apply:s=>{s.chips+=s.jokerCount*20}},
+  {id:'honor_guard',name:'Honor Guard',emoji:'⛩️',desc:'+20 Base per Joker',cost:8,rarity:'R',sell:5,apply:s=>{s.chips+=s.jokerCount*20}},
   {id:'shadow_clone',name:'Shadow Clone',emoji:'🥷',desc:'+1 hand per round',cost:8,rarity:'R',sell:5,apply:null,bonusHands:1},
   {id:'shoguns_helm',name:"Shogun's Helm",emoji:'⛑️',desc:'+1 discard per round',cost:7,rarity:'R',sell:5,apply:null,bonusDiscards:1},
 ];
@@ -227,17 +251,17 @@ const PLANET_DEFS=[
   {hand:'FOUR_KIND',name:'Dragon Shrine',emoji:'⛩️'},
   {hand:'STRAIGHT_FLUSH',name:'Sacred Temple',emoji:'🛕'},
 ];
-// Per ante: [students, baseSpeed, swordLen, scoreTarget] for small/big/boss
-// Score = raw chips earned in dojo × card-power multiplier (Balatro-style)
+// Per ante: [students, baseSpeed, swordLen, moneyTarget] for small/big/boss
+// Teaching in the dojo earns $ directly; power is fuel for movement
 const ANTE_CFG=[
-  {stu:[2,3,4],  spd:1.2, swd:32, tgt:[200,350,500]},
-  {stu:[3,4,5],  spd:1.4, swd:34, tgt:[600,1000,1500]},
-  {stu:[4,5,6],  spd:1.6, swd:36, tgt:[1500,2500,3800]},
-  {stu:[5,6,7],  spd:1.7, swd:38, tgt:[3500,5500,8000]},
-  {stu:[6,7,8],  spd:1.9, swd:40, tgt:[7000,11000,16000]},
-  {stu:[7,8,9],  spd:2.0, swd:42, tgt:[14000,21000,30000]},
-  {stu:[8,9,10], spd:2.2, swd:44, tgt:[25000,38000,52000]},
-  {stu:[9,10,12],spd:2.4, swd:46, tgt:[40000,58000,80000]},
+  {stu:[2,3,4],  spd:1.2, swd:32, tgt:[15,22,30]},
+  {stu:[3,4,5],  spd:1.4, swd:34, tgt:[25,38,52]},
+  {stu:[4,5,6],  spd:1.6, swd:36, tgt:[38,55,78]},
+  {stu:[5,6,7],  spd:1.7, swd:38, tgt:[52,75,105]},
+  {stu:[6,7,8],  spd:1.9, swd:40, tgt:[68,98,138]},
+  {stu:[7,8,9],  spd:2.0, swd:42, tgt:[85,125,175]},
+  {stu:[8,9,10], spd:2.2, swd:44, tgt:[105,155,215]},
+  {stu:[9,10,12],spd:2.4, swd:46, tgt:[130,190,260]},
 ];
 const BOSS_BLINDS=[
   {name:'The Student',desc:'Teacher moves slower',eff:'slowTeacher'},
@@ -245,7 +269,7 @@ const BOSS_BLINDS=[
   {name:'The Shogun',desc:'Longer swords',eff:'longSwords'},
   {name:'The Ninja',desc:'Students are invisible',eff:'invisible'},
   {name:'The Dragon',desc:'Learn radius halved',eff:'halfRadius'},
-  {name:'The Demon',desc:'No shields',eff:'noShield'},
+  {name:'The Demon',desc:'Power drains constantly',eff:'powerLeak'},
 ];
 const BLIND_NAMES=['Small Blind','Big Blind','Boss Blind'];
 const STUDENT_COLORS=['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#e84393','#00cec9','#fdcb6e','#6c5ce7','#fab1a0'];
@@ -278,8 +302,8 @@ function resetState(){
     handLevels:{},maxJokers:5,handSize:8,
     shopItems:[],rerollCost:5,scoring:false,sortMode:0,
     // Action phase
-    teacher:null,students:[],rawChips:0,blindTarget:0,
-    shieldHP:0,shieldMax:0,bonusRadius:0,scoreMult:1,teacherSpeedMult:1,
+    teacher:null,students:[],dojoMoney:0,blindTarget:0,
+    powerStart:0,teacherSpeedMult:1,
     actionState:'',animId:null,boss:null,bossEff:null,
     hitFlash:0,
   };
@@ -349,12 +373,8 @@ function calcScore(type,scoringCards,playedCards){
   G.jokers.forEach(j=>{const def=JOKER_DEFS.find(x=>x.id===j.id);if(def?.apply)def.apply(ctx)});
   return{chips:Math.round(ctx.chips),mult:Math.round(ctx.mult*10)/10,xMult:Math.round(ctx.xMult*10)/10,total:Math.max(0,Math.floor(ctx.chips*ctx.mult*ctx.xMult))};
 }
-function powerToBuffs(pwr){
-  return{
-    shield:Math.min(5,Math.floor(pwr/200)),
-    radius:Math.min(60,Math.floor(pwr/15)),
-    scoreMult:Math.round((1+pwr/100)*10)/10,
-  };
+function getLearnRadius(currentPower){
+  return 80+Math.min(60,Math.floor(currentPower/10));
 }
 
 // ═══════════════════════════════════════
@@ -368,16 +388,106 @@ function playHand(){
   const sel=getSelectedCards();
   if(sel.length<1||sel.length>5)return;
   const ev=evaluateHand(sel);if(!ev)return;
-  const sc=calcScore(ev.type,ev.scoring,sel);
   G.scoring=true;G.handsLeft--;
-  const selSet=new Set(G.selected);
-  const remaining=[];G.hand.forEach((c,i)=>{if(selSet.has(i))G.discardPile.push(c);else remaining.push(c)});
-  G.hand=remaining;G.selected.clear();
-  showScoreOverlay(ev.type,sc,()=>{
-    G.power+=sc.total;G.scoring=false;
+  // Pre-compute scoring steps
+  const steps=precomputeScoring(ev,sel);
+  // Animate scoring with cards still visible
+  animateScoring(ev,steps,()=>{
+    G.power+=steps.total;
+    const selSet=new Set(G.selected);
+    const remaining=[];G.hand.forEach((c,i)=>{if(selSet.has(i))G.discardPile.push(c);else remaining.push(c)});
+    G.hand=remaining;G.selected.clear();G.scoring=false;
     if(G.handsLeft<=0){enterDojo()}
     else{fillHand();renderCards()}
   });
+}
+function precomputeScoring(ev,playedCards){
+  const d=HAND_DEFS[ev.type],l=G.handLevels[ev.type]||0;
+  let chips=d.base[0]+l*d.up[0],mult=d.base[1]+l*d.up[1],xMult=1;
+  const steps=[];
+  steps.push({type:'base',chips,mult,xMult});
+  ev.scoring.forEach(c=>{
+    chips+=RANK_CHIPS[c.rank];
+    steps.push({type:'card',card:c,added:RANK_CHIPS[c.rank],chips,mult,xMult});
+  });
+  const ctx={chips,mult,xMult,type:ev.type,played:playedCards.length,handSize:G.hand.length-playedCards.length,jokerCount:G.jokers.length};
+  G.jokers.forEach((j,ji)=>{
+    const def=JOKER_DEFS.find(x=>x.id===j.id);if(!def?.apply)return;
+    const b={chips:ctx.chips,mult:ctx.mult,xMult:ctx.xMult};
+    def.apply(ctx);
+    if(ctx.chips!==b.chips||ctx.mult!==b.mult||ctx.xMult!==b.xMult){
+      steps.push({type:'joker',ji,def,chips:Math.round(ctx.chips),mult:Math.round(ctx.mult*10)/10,xMult:Math.round(ctx.xMult*10)/10,
+        dc:Math.round(ctx.chips)-Math.round(b.chips),dm:Math.round(ctx.mult*10)/10-Math.round(b.mult*10)/10,dx:Math.round(ctx.xMult*10)/10-Math.round(b.xMult*10)/10});
+    }
+  });
+  const total=Math.max(0,Math.floor(ctx.chips*ctx.mult*ctx.xMult));
+  return{steps,total,chips:Math.round(ctx.chips),mult:Math.round(ctx.mult*10)/10,xMult:Math.round(ctx.xMult*10)/10};
+}
+function animateScoring(ev,result,onComplete){
+  const d=HAND_DEFS[ev.type],l=G.handLevels[ev.type]||0;
+  const cardEls=[...document.querySelectorAll('#cards .hand-area .card')];
+  const jokerEls=[...document.querySelectorAll('#cards .joker-card')];
+  const selIndices=[...G.selected].sort((a,b)=>a-b);
+  // Build set of hand indices that are "scoring" cards
+  const scoringIdxSet=new Set();
+  ev.scoring.forEach(sc=>{const idx=G.hand.indexOf(sc);if(idx>=0)scoringIdxSet.add(idx)});
+  // Highlight all selected, glow scoring ones
+  selIndices.forEach(i=>{
+    if(scoringIdxSet.has(i))cardEls[i]?.classList.add('scoring-highlight');
+    else if(cardEls[i])cardEls[i].style.opacity='0.5';
+  });
+  // Show scoring strip in preview area
+  const preview=document.querySelector('.hand-preview');
+  if(preview)preview.innerHTML=`<div class="scoring-strip">
+    <div class="ss-hand">${d.name}${l>0?' Lv.'+(l+1):''}</div>
+    <div class="ss-calc"><span class="sc-chips" style="color:var(--chips)">${result.steps[0].chips}</span> <span style="color:var(--dim)">×</span> <span class="sc-mult" style="color:var(--mult)">${result.steps[0].mult}</span></div>
+    <div class="ss-jokers" id="ss-jokers"></div>
+    <div class="ss-total" id="ss-total"></div></div>`;
+  const chipsEl=document.querySelector('.sc-chips');
+  const multEl=document.querySelector('.sc-mult');
+  const jokersEl=$('ss-jokers');
+  let delay=350;
+  // Bounce scoring cards one by one
+  const scoringIndices=[...scoringIdxSet].filter(i=>selIndices.includes(i));
+  scoringIndices.forEach((idx,i)=>{
+    const step=result.steps.find(s=>s.type==='card'&&s.card===G.hand[idx]);
+    setTimeout(()=>{
+      if(cardEls[idx]){cardEls[idx].classList.add('card-bounce');
+        setTimeout(()=>cardEls[idx]?.classList.remove('card-bounce'),300)}
+      if(chipsEl&&step)chipsEl.textContent=step.chips;
+    },delay+i*160);
+  });
+  delay+=scoringIndices.length*160+200;
+  // Evaluate jokers in sequence
+  const jokerSteps=result.steps.filter(s=>s.type==='joker');
+  jokerSteps.forEach((step,i)=>{
+    setTimeout(()=>{
+      if(jokerEls[step.ji]){jokerEls[step.ji].classList.add('joker-triggered');
+        setTimeout(()=>jokerEls[step.ji]?.classList.remove('joker-triggered'),400)}
+      if(chipsEl)chipsEl.textContent=step.chips;
+      const fm=Math.round(step.mult*step.xMult*10)/10;
+      if(multEl)multEl.textContent=fm;
+      // Show what the joker did
+      if(jokersEl){
+        let tag='';
+        if(step.dc)tag+=`+${step.dc} Base `;
+        if(step.dm)tag+=`+${step.dm} Mult `;
+        if(step.dx)tag+=`×${step.xMult} `;
+        jokersEl.innerHTML+=`<span class="ss-joker-tag">${step.def.emoji} ${tag.trim()}</span>`;
+      }
+    },delay+i*350);
+  });
+  delay+=jokerSteps.length*350+300;
+  // Show total
+  setTimeout(()=>{
+    const totalEl=$('ss-total');
+    if(totalEl)totalEl.innerHTML=`<span style="color:#fff;font-size:28px">+${result.total.toLocaleString()}</span> <span style="color:var(--gold)">⚡</span>`;
+    const pv=document.querySelector('.power-val');
+    if(pv){const start=G.power,end=G.power+result.total,dur=500,t0=performance.now();
+      (function tick(now){const p=clamp((now-t0)/dur,0,1);pv.textContent=Math.floor(start+(end-start)*p);
+        if(p<1)requestAnimationFrame(tick);else pv.textContent=end})(t0)}
+    setTimeout(onComplete,900);
+  },delay);
 }
 function discardCards(){
   if(G.scoring||G.discardsLeft<=0)return;
@@ -392,11 +502,8 @@ function discardCards(){
 // ENTER DOJO (card → action transition)
 // ═══════════════════════════════════════
 function enterDojo(){
-  const buffs=powerToBuffs(G.power);
-  G.shieldMax=buffs.shield;G.shieldHP=buffs.shield;
-  G.bonusRadius=buffs.radius;G.scoreMult=buffs.scoreMult;
-  if(G.bossEff==='noShield'){G.shieldHP=0;G.shieldMax=0}
-  if(G.bossEff==='halfRadius')G.bonusRadius=Math.floor(G.bonusRadius/2);
+  G.powerStart=G.power;
+  G.dojoMoney=0;
   showScreen('buff-summary');renderBuffSummary();
   setTimeout(()=>{startAction()},2200);
 }
@@ -423,6 +530,7 @@ function createStudent(i,total){
     time:Math.random()*100,color:STUDENT_COLORS[i%STUDENT_COLORS.length],
     goingUp:true,completed:false,wobble:.3+Math.random()*.5,learning:false,
     chipValue:10+G.ante*4+Math.floor(Math.random()*8),
+    moneyValue:1+G.ante*0.5+Math.random(),
   };
 }
 
@@ -432,7 +540,7 @@ function createStudent(i,total){
 function startAction(){
   const cfg=ANTE_CFG[G.ante-1];
   const stuCount=cfg.stu[G.blind];
-  G.blindTarget=cfg.tgt[G.blind];G.rawChips=0;
+  G.blindTarget=cfg.tgt[G.blind];G.dojoMoney=0;
   G.teacher=createTeacher();G.students=[];
   G.teacherSpeedMult=G.bossEff==='slowTeacher'?.6:1;
   for(let i=0;i<stuCount;i++)G.students.push(createStudent(i,stuCount));
@@ -451,10 +559,18 @@ function actionLoop(){
 function actionUpdate(){
   if(G.actionState!=='playing')return;
   const t=G.teacher,ts=t.speed*G.teacherSpeedMult;
-  if(keys.ArrowLeft)t.x-=ts;if(keys.ArrowRight)t.x+=ts;
-  if(keys.ArrowUp)t.y-=ts;if(keys.ArrowDown)t.y+=ts;
+  // Power drain while moving
+  const moving=keys.ArrowLeft||keys.ArrowRight||keys.ArrowUp||keys.ArrowDown;
+  if(moving&&G.power>0){
+    if(keys.ArrowLeft)t.x-=ts;if(keys.ArrowRight)t.x+=ts;
+    if(keys.ArrowUp)t.y-=ts;if(keys.ArrowDown)t.y+=ts;
+    G.power=Math.max(0,G.power-0.3);
+  }
+  // Boss: passive power drain
+  if(G.bossEff==='powerLeak')G.power=Math.max(0,G.power-0.15);
   t.x=clamp(t.x,50,CW-50);t.y=clamp(t.y,DOJO_TOP+10,DOJO_BOT-30);
-  const learnR=120+G.bonusRadius;
+  let learnR=getLearnRadius(G.power);
+  if(G.bossEff==='halfRadius')learnR=Math.floor(learnR/2);
   let allDone=true;
   for(const s of G.students){
     if(s.completed){continue}
@@ -471,20 +587,19 @@ function actionUpdate(){
     s.time+=.016;
     const raw=s.swingPattern(s.time,s.swingSpeed);
     s.swordAngle=raw*Math.PI*.8-Math.PI/2;
-    // Teach — earn raw chips (closer = bonus)
+    // Teach — earn money directly (closer = bonus)
     const dx=s.x-t.x,dy=s.y-t.y,dist=Math.sqrt(dx*dx+dy*dy);
     s.learning=dist<learnR;
-    if(s.learning){const close=dist<learnR/2?1.5:1;G.rawChips+=s.chipValue*close/60}
-    // Collision
-    if(checkHit(s,t)){
-      if(G.shieldHP>0){G.shieldHP--;G.hitFlash=15}
-      else{G.actionState='lost';endAction(false);return}
+    if(s.learning){const close=dist<learnR/2?1.5:1;G.dojoMoney+=s.moneyValue*close/60}
+    // Collision — costs power (cooldown via hitFlash)
+    if(G.hitFlash<=0&&checkHit(s,t)){
+      G.power=Math.max(0,G.power-30);G.hitFlash=30;
+      if(G.power<=0){G.actionState='lost';endAction(false);return}
     }
   }
   if(G.hitFlash>0)G.hitFlash--;
   if(allDone){
-    const finalScore=Math.floor(G.rawChips*G.scoreMult);
-    G.actionState=finalScore>=G.blindTarget?'won':'lost';
+    G.actionState=Math.floor(G.dojoMoney)>=G.blindTarget?'won':'lost';
     endAction(G.actionState==='won');
   }
 }
@@ -499,18 +614,18 @@ function checkHit(s,t){
 function ptInRect(px,py,r){return px>r.x-r.w/2&&px<r.x+r.w/2&&py>r.y-r.h/2&&py<r.y+r.h/2}
 function endAction(won){
   cancelAnimationFrame(G.animId);
-  // Final draw
   actionDraw();renderActionHUD();
   setTimeout(()=>{
     canvas.classList.remove('visible');
     $('action-hud').classList.remove('visible');
     if(won){
-      const base=3+G.blind;
+      const dojoEarned=Math.floor(G.dojoMoney);
+      G.money+=dojoEarned;
       const interest=Math.min(5,Math.floor(G.money/5));
       let jMoney=0;G.jokers.forEach(j=>{const d=JOKER_DEFS.find(x=>x.id===j.id);if(d?.roundMoney)jMoney+=d.roundMoney});
-      const earned=base+interest+jMoney;G.money+=earned;
+      G.money+=interest+jMoney;
       if(G.ante>=8&&G.blind>=2){showScreen('win');renderWin();return}
-      showScreen('results');renderResults(true,earned,base,interest,jMoney);
+      showScreen('results');renderResults(true,dojoEarned,interest,jMoney);
     } else {
       showScreen('game-over');renderGameOver();
     }
@@ -521,7 +636,8 @@ function endAction(won){
 // ACTION PHASE — DRAWING
 // ═══════════════════════════════════════
 function actionDraw(){
-  const t=G.teacher;const learnR=120+G.bonusRadius;
+  const t=G.teacher;let learnR=getLearnRadius(G.power);
+  if(G.bossEff==='halfRadius')learnR=Math.floor(learnR/2);
   // Floor
   ctx.fillStyle='#c8a96e';ctx.fillRect(0,0,CW,CH);
   ctx.strokeStyle='#b89a5a';ctx.lineWidth=1;
@@ -562,8 +678,8 @@ function actionDraw(){
     const hx=sx+Math.cos(s.swordAngle)*8,hy=sy+Math.sin(s.swordAngle)*8;
     ctx.lineTo(hx,hy);ctx.stroke();
     ctx.fillStyle='#f1c40f';ctx.beginPath();ctx.arc(hx,hy,3,0,Math.PI*2);ctx.fill();
-    if(s.learning&&!s.completed){ctx.fillStyle='rgba(241,196,15,.9)';ctx.font='bold 11px sans-serif';ctx.textAlign='center';ctx.fillText('📖+'+s.chipValue,s.x,s.y-26)}
-    else if(!s.completed&&vis){ctx.fillStyle='rgba(255,255,255,.35)';ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.fillText(s.chipValue,s.x,s.y-26)}
+    if(s.learning&&!s.completed){ctx.fillStyle='rgba(46,204,113,.9)';ctx.font='bold 11px sans-serif';ctx.textAlign='center';ctx.fillText('💰+$'+s.moneyValue.toFixed(1),s.x,s.y-26)}
+    else if(!s.completed&&vis){ctx.fillStyle='rgba(255,255,255,.35)';ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.fillText('$'+s.moneyValue.toFixed(1),s.x,s.y-26)}
   }
   // Teacher
   if(t){
@@ -571,25 +687,25 @@ function actionDraw(){
     ctx.fillStyle='#1a252f';ctx.fillRect(t.x-14,t.y+10,28,16);
     ctx.fillStyle='#fad7a0';ctx.beginPath();ctx.arc(t.x,t.y-13,11,0,Math.PI*2);ctx.fill();
     ctx.fillStyle='#fff';ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.fillText('先生',t.x,t.y+3);
-    // Shield pips
-    for(let i=0;i<G.shieldMax;i++){
-      ctx.fillStyle=i<G.shieldHP?'#e74c3c':'rgba(255,255,255,.2)';
-      ctx.font='14px sans-serif';ctx.fillText('❤️',t.x-G.shieldMax*8+i*16,t.y-28);
-    }
+    // Power meter above teacher
+    const pw=40,ph=4,px=t.x-pw/2,py=t.y-32;
+    const pFill=G.powerStart>0?clamp(G.power/G.powerStart,0,1):0;
+    ctx.fillStyle='rgba(0,0,0,.4)';ctx.fillRect(px,py,pw,ph);
+    ctx.fillStyle=pFill>.3?'#f1c40f':'#e74c3c';ctx.fillRect(px,py,pw*pFill,ph);
   }
   // Hit flash
   if(G.hitFlash>0){ctx.fillStyle=`rgba(255,0,0,${G.hitFlash/30})`;ctx.fillRect(0,0,CW,CH)}
   // Win/loss overlay
-  const fs=Math.floor(G.rawChips*G.scoreMult);
+  const dm=Math.floor(G.dojoMoney);
   if(G.actionState==='won'){
     ctx.fillStyle='rgba(0,0,0,.4)';ctx.fillRect(0,0,CW,CH);
     ctx.fillStyle='#2ecc71';ctx.font='bold 36px sans-serif';ctx.textAlign='center';ctx.fillText('✓ Blind Cleared!',CW/2,CH/2-20);
-    ctx.font='bold 18px sans-serif';ctx.fillStyle='#e8e1d5';ctx.fillText(Math.floor(G.rawChips)+' × '+G.scoreMult.toFixed(1)+' = '+fs.toLocaleString(),CW/2,CH/2+16);
+    ctx.font='bold 18px sans-serif';ctx.fillStyle='#e8e1d5';ctx.fillText('💰 $'+dm+' earned',CW/2,CH/2+16);
   } else if(G.actionState==='lost'){
     ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(0,0,CW,CH);
     ctx.fillStyle='#fe5f55';ctx.font='bold 36px sans-serif';ctx.textAlign='center';
-    ctx.fillText(fs<G.blindTarget?'✗ Score Too Low!':'✗ Struck Down!',CW/2,CH/2-10);
-    ctx.font='bold 16px sans-serif';ctx.fillStyle='#e8e1d5';ctx.fillText(fs.toLocaleString()+' / '+G.blindTarget.toLocaleString(),CW/2,CH/2+20);
+    ctx.fillText(dm<G.blindTarget?'✗ Not Enough Money!':'✗ Out of Energy!',CW/2,CH/2-10);
+    ctx.font='bold 16px sans-serif';ctx.fillStyle='#e8e1d5';ctx.fillText('$'+dm+' / $'+G.blindTarget,CW/2,CH/2+20);
   }
 }
 
@@ -648,10 +764,13 @@ function renderMenu(){
   $('menu').innerHTML=`
     <div class="title">⚔️ Beginners with Swords</div>
     <div class="subtitle">A Roguelike Deck-Builder Dojo</div>
-    <div class="howto">Play poker hands with sword cards to power up your teacher,<br>then survive the dojo dodging sword-swinging students!<br><br>
-    <b>Cards:</b> Select up to 5 cards → Play Hand for power<br>
-    <b>Dojo:</b> Arrow keys to dodge • Stay near students to teach them<br>
-    <b>Goal:</b> Earn chips in the dojo × your card power to beat each blind's target</div>
+    <div class="howto">
+    <b>🃏 Card Phase</b> — Play poker hands to build ⚡ <em>energy</em><br>
+    <b>🏯 Dojo Phase</b> — Spend energy to move! Stay near students to teach them and earn 💰<br>
+    <b>🎯 Goal</b> — Earn enough money in the dojo to beat each blind's target<br><br>
+    <span style="color:var(--dim)">Better hands = more energy = more movement = more money<br>
+    Getting hit costs energy • When energy runs out, you freeze!</span>
+    </div>
     <button class="btn btn-play" onclick="startGame()">Draw Your Blade</button>`;
 }
 function renderBlindIntro(){
@@ -663,13 +782,12 @@ function renderBlindIntro(){
     <div class="bi-type">${BLIND_NAMES[G.blind]} · Ante ${G.ante}</div>
     <div class="bi-name">${isBoss?bName:BLIND_NAMES[G.blind]}</div>
     <div class="bi-desc">${isBoss?bDesc:stuN+' students'}</div>
-    <div class="bi-target">Score at least <span>${tgt.toLocaleString()}</span></div>
+    <div class="bi-target">Earn at least <span>$${tgt}</span> in the dojo</div>
     <button class="btn btn-play" onclick="startBlind()">Prepare Cards</button>
   </div>`;
 }
 function renderCards(){
   const sel=getSelectedCards();const ev=sel.length?evaluateHand(sel):null;
-  const buffs=powerToBuffs(G.power);
   let prevHTML='<span style="color:var(--dim)">Select cards to play</span>';
   if(ev){
     const sc=calcScore(ev.type,ev.scoring,sel);const d=HAND_DEFS[ev.type];const l=G.handLevels[ev.type]||0;
@@ -677,7 +795,7 @@ function renderCards(){
     prevHTML=`<span class="preview-type">${d.name}${l>0?' Lv.'+(l+1):''}</span> — <span class="preview-chips">${sc.chips}</span> <span style="color:var(--dim)">×</span> <span class="preview-mult">${fm}</span> <span style="color:var(--dim)">=</span> <span style="color:#fff">+${sc.total.toLocaleString()} power</span>`;
   }
   let jHTML='';
-  G.jokers.forEach(j=>{const d=JOKER_DEFS.find(x=>x.id===j.id);jHTML+=`<div class="joker-card"><div class="j-emoji">${d.emoji}</div><div class="j-name">${d.name}</div><div class="tooltip">${d.desc}</div></div>`});
+  G.jokers.forEach(j=>{const d=JOKER_DEFS.find(x=>x.id===j.id);const rar=d.rarity==='C'?'Common':d.rarity==='U'?'Uncommon':'Rare';jHTML+=`<div class="joker-card"><div class="j-emoji">${d.emoji}</div><div class="j-name">${d.name}</div><div class="tooltip"><div class="tt-name">${d.name}</div><div class="tt-desc">${d.desc}</div><div class="tt-meta">${rar} · Sell $${d.sell}</div></div></div>`});
   for(let i=G.jokers.length;i<G.maxJokers;i++)jHTML+=`<div class="joker-slot">Empty</div>`;
   let cardsHTML='';
   G.hand.forEach((c,i)=>{const s=SUITS[c.suit];const sel2=G.selected.has(i)?'selected':'';
@@ -686,13 +804,16 @@ function renderCards(){
   const canPlay=sel.length>=1&&sel.length<=5&&G.handsLeft>0;
   const canDiscard=sel.length>0&&sel.length<=5&&G.discardsLeft>0;
   $('cards').innerHTML=`
+    <div class="hand-ranks-panel">
+      <div class="hr-title">Hand Types</div>
+      ${HAND_ORDER.map(h=>{const d=HAND_DEFS[h];const l=G.handLevels[h]||0;const c=d.base[0]+l*d.up[0];const m=d.base[1]+l*d.up[1];const active=ev&&ev.type===h;
+        return`<div class="hr-item${active?' hr-active':''}"><div class="hr-name">${d.name}<span class="hr-lvl">Lv.${l+1}</span></div><div class="hr-stats"><span class="c">${c}</span> <span style="color:var(--dim)">×</span> <span class="m">${m}</span></div></div>`}).join('')}
+    </div>
+    <div class="cards-main">
     <div class="top-bar"><div class="ante">Ante ${G.ante} · ${BLIND_NAMES[G.blind]}${G.boss?' — <span style="color:var(--mult)">'+G.boss.name+'</span>':''}</div><div class="money">💰 $${G.money}</div></div>
     <div class="joker-area">${jHTML}</div>
     <div class="power-bar">
-      <span>⚡</span><span class="power-val">${G.power}</span><span style="font-size:13px;color:var(--dim)">Power</span>
-      <span class="buff-tag">🛡️ ${buffs.shield} HP</span>
-      <span class="buff-tag">📖 +${buffs.radius} radius</span>
-      <span class="buff-tag">⚔️ ×${buffs.scoreMult} score mult</span>
+      <span>⚡</span><span class="power-val">${G.power}</span><span style="font-size:13px;color:var(--dim)">Energy for Dojo</span>
     </div>
     <div class="hand-area">${cardsHTML}</div>
     <div class="hand-preview">${prevHTML}</div>
@@ -704,69 +825,51 @@ function renderCards(){
       <button class="btn btn-dark btn-sm" onclick="sortHand()">Sort</button>
       <span class="deck-count">Deck: ${G.drawPile.length}</span>
       <button class="btn btn-green btn-sm" onclick="enterDojo()" style="margin-left:12px">Enter Dojo →</button>
+    </div>
     </div>`;
 }
-function showScoreOverlay(type,score,cb){
-  const d=HAND_DEFS[type];const l=G.handLevels[type]||0;
-  const fm=Math.round(score.mult*score.xMult*10)/10;
-  const ov=$('score-overlay');ov.classList.add('active');
-  ov.innerHTML=`<div class="so-hand">${d.name}${l>0?' Lv.'+(l+1):''}</div>
-    <div class="so-calc"><span class="c">${score.chips}</span><span class="x">×</span><span class="m">${fm}</span></div>
-    <div class="so-total" id="so-num">0</div>
-    <div class="so-power">⚡ ${G.power} → ${G.power+score.total}</div>`;
-  const el=$('so-num');const dur=600,start=performance.now(),tgt=score.total;
-  function tick(now){const t=clamp((now-start)/dur,0,1);const e=1-Math.pow(1-t,3);el.textContent=Math.floor(e*tgt).toLocaleString();
-    if(t<1)requestAnimationFrame(tick);else{el.textContent=tgt.toLocaleString();setTimeout(()=>{ov.classList.remove('active');cb()},500)}}
-  setTimeout(()=>requestAnimationFrame(tick),300);
-}
 function renderBuffSummary(){
-  const b=powerToBuffs(G.power);
   const tgt=ANTE_CFG[G.ante-1].tgt[G.blind];
+  const r=getLearnRadius(G.power);
   $('buff-summary').innerHTML=`<div class="bs-box">
-    <div class="bs-title">⚡ Power: ${G.power}</div>
+    <div class="bs-title">⚡ Energy: ${G.power}</div>
     <div class="bs-buffs">
-      <div class="bs-buff"><div class="bb-icon">🛡️</div><div class="bb-val">${G.bossEff==='noShield'?'<s>'+b.shield+'</s> 0':b.shield} HP</div><div class="bb-label">Shield</div></div>
-      <div class="bs-buff"><div class="bb-icon">📖</div><div class="bb-val">+${G.bossEff==='halfRadius'?Math.floor(b.radius/2):b.radius}</div><div class="bb-label">Learn Radius</div></div>
-      <div class="bs-buff"><div class="bb-icon">⚔️</div><div class="bb-val" style="color:var(--mult)">×${b.scoreMult}</div><div class="bb-label">Score Multiplier</div></div>
+      <div class="bs-buff"><div class="bb-icon">🏃</div><div class="bb-val">${G.power}</div><div class="bb-label">Movement Fuel</div></div>
+      <div class="bs-buff"><div class="bb-icon">📖</div><div class="bb-val">${r}px</div><div class="bb-label">Learn Radius</div></div>
+      <div class="bs-buff"><div class="bb-icon">⚔️</div><div class="bb-val" style="color:var(--mult)">−30⚡</div><div class="bb-label">Hit Cost</div></div>
     </div>
-    <div style="font-size:13px;color:var(--dim);margin-top:8px">Target: <span style="color:var(--chips)">${tgt.toLocaleString()}</span> — Entering the dojo...</div>
+    <div style="font-size:13px;color:var(--dim);margin-top:8px">Earn at least <span style="color:var(--gold)">$${tgt}</span> — Entering the dojo...</div>
   </div>`;
 }
 function renderActionHUD(){
-  const score=Math.floor(G.rawChips*G.scoreMult);
-  const tgt=G.blindTarget;const pct=clamp(score/tgt*100,0,100);
-  let hearts='';for(let i=0;i<G.shieldMax;i++)hearts+=i<G.shieldHP?'❤️':'🖤';
+  const dm=Math.floor(G.dojoMoney);
+  const tgt=G.blindTarget;const pct=clamp(dm/tgt*100,0,100);
+  const pFill=G.powerStart>0?clamp(G.power/G.powerStart*100,0,100):0;
   $('action-hud').innerHTML=`
     <div class="hud-top">
       <div class="ht-left"><span>Ante ${G.ante} · ${BLIND_NAMES[G.blind]}</span>${G.boss?'<span style="color:var(--mult)">'+G.boss.name+'</span>':''}</div>
-      <div class="ht-right"><span class="hud-hearts">${hearts}</span>
-        <span class="hud-learn" style="color:${score>=tgt?'#2ecc71':'var(--chips)'}">
-          <span style="color:var(--chips)">${Math.floor(G.rawChips)}</span>
-          <span style="color:var(--dim)">×</span>
-          <span style="color:var(--mult)">${G.scoreMult.toFixed(1)}</span>
-          <span style="color:var(--dim)">=</span>
-          ${score.toLocaleString()} / ${tgt.toLocaleString()}
+      <div class="ht-right">
+        <span style="font-size:13px;font-weight:700;color:${G.power>0?'#f1c40f':'#e74c3c'}">⚡${Math.floor(G.power)}</span>
+        <span class="hud-learn" style="color:${dm>=tgt?'#2ecc71':'var(--gold)'}">
+          💰 $${dm} / $${tgt}
         </span>
       </div>
     </div>
-    <div class="hud-bar"><div class="hud-bar-fill" style="width:${pct}%"></div></div>
+    <div class="hud-bar"><div class="hud-bar-fill" style="width:${pct}%;background:linear-gradient(90deg,var(--gold),#ffd700)"></div></div>
     <div class="hud-buffs">
-      <span>🛡️${G.shieldHP}</span><span>📖+${G.bonusRadius}</span><span>⚔️×${G.scoreMult.toFixed(1)}</span>
+      <span>⚡${Math.floor(G.power)}/${G.powerStart}</span><span>📖${getLearnRadius(G.power)}px</span>
     </div>`;
 }
-function renderResults(won,earned,base,interest,jMoney){
-  const fs=Math.floor(G.rawChips*G.scoreMult);
+function renderResults(won,dojoEarned,interest,jMoney){
   $('results').innerHTML=`<div class="res-box">
     <div class="res-title" style="color:${won?'#2ecc71':'var(--mult)'}">${won?'✓ Blind Cleared!':'✗ Failed!'}</div>
     <div class="res-sub" style="font-size:18px;margin-bottom:10px">
-      <span style="color:var(--chips)">${Math.floor(G.rawChips)}</span>
-      <span style="color:var(--dim)"> × </span>
-      <span style="color:var(--mult)">${G.scoreMult.toFixed(1)}</span>
-      <span style="color:var(--dim)"> = </span>
-      <span style="color:#fff;font-weight:900">${fs.toLocaleString()}</span>
-      <span style="color:var(--dim)"> / ${G.blindTarget.toLocaleString()}</span>
+      <span style="color:var(--gold)">💰 $${dojoEarned} earned in dojo</span>
     </div>
-    <div class="res-money">Earned: <span>+$${earned}</span> <span style="font-size:12px;color:var(--dim)">(Base $${base} + Interest $${interest}${jMoney?' + Jokers $'+jMoney:''})</span></div>
+    <div class="res-money">
+      <span style="font-size:12px;color:var(--dim)">Interest +$${interest}${jMoney?' · Jokers +$'+jMoney:''}</span>
+      <br><span style="color:var(--gold);font-weight:800">Bank: $${G.money}</span>
+    </div>
     <button class="btn btn-green" onclick="openShop()">Dojo Shop →</button>
   </div>`;
 }
@@ -781,7 +884,7 @@ function renderShop(){
       itemsHTML+=`<div class="shop-item ${sold}" onclick="${can?'buyShopItem('+i+')':''}" style="${can?'':'opacity:.5'}"><div class="si-type">Sword Scroll</div><div class="si-emoji">${d.emoji}</div><div class="si-name">${d.name}</div><div class="si-desc">Level up ${hd.name} (Lv ${l}→${l+1})</div><div class="si-cost">${item.sold?'SOLD':'$'+cost}</div></div>`}
   });
   let yjHTML='';G.jokers.forEach((j,i)=>{const d=JOKER_DEFS.find(x=>x.id===j.id);
-    yjHTML+=`<div class="joker-card" onclick="sellJoker(${i})" style="cursor:pointer"><div class="j-emoji">${d.emoji}</div><div class="j-name">${d.name}</div><div class="j-sell">Sell $${d.sell}</div><div class="tooltip">${d.desc}<br>Click to sell $${d.sell}</div></div>`});
+    yjHTML+=`<div class="joker-card" onclick="sellJoker(${i})" style="cursor:pointer"><div class="j-emoji">${d.emoji}</div><div class="j-name">${d.name}</div><div class="j-sell">Sell $${d.sell}</div><div class="tooltip"><div class="tt-name">${d.name}</div><div class="tt-desc">${d.desc}</div><div class="tt-meta">Click to sell $${d.sell}</div></div></div>`});
   let nextLabel='';if(G.blind<2)nextLabel=BLIND_NAMES[G.blind+1]+' (Ante '+G.ante+')';else nextLabel='Ante '+(G.ante+1)+' Small Blind';
   const interest=Math.min(5,Math.floor(G.money/5));
   $('shop').innerHTML=`
@@ -801,17 +904,14 @@ function renderShop(){
       </div></details></div>`;
 }
 function renderGameOver(){
-  const fs=Math.floor(G.rawChips*G.scoreMult);
+  const dm=Math.floor(G.dojoMoney);
   $('game-over').innerHTML=`
     <div class="go-title" style="color:var(--mult)">💀 Defeated!</div>
     <div class="go-sub">Ante ${G.ante}, ${BLIND_NAMES[G.blind]}</div>
     <div style="font-size:16px;margin-bottom:8px">
-      <span style="color:var(--chips)">${Math.floor(G.rawChips)}</span>
-      <span style="color:var(--dim)"> × </span>
-      <span style="color:var(--mult)">${G.scoreMult.toFixed(1)}</span>
-      <span style="color:var(--dim)"> = </span>
-      <span style="color:#fff">${fs.toLocaleString()}</span>
-      <span style="color:var(--dim)"> / ${G.blindTarget.toLocaleString()}</span>
+      <span style="color:var(--gold)">💰 $${dm}</span>
+      <span style="color:var(--dim)"> / $${G.blindTarget}</span>
+      ${G.power<=0?'<br><span style="color:var(--mult);font-size:13px">⚡ Out of energy!</span>':''}
     </div>
     <div style="margin-bottom:16px">${G.jokers.map(j=>{const d=JOKER_DEFS.find(x=>x.id===j.id);return d?d.emoji:''}).join(' ')}</div>
     <button class="btn btn-play" onclick="startGame()">Try Again</button>
