@@ -157,6 +157,10 @@ canvas.visible{display:block}
 .shop-item{width:125px;padding:10px;border-radius:11px;background:var(--panel);border:2px solid rgba(255,255,255,.1);cursor:pointer;text-align:center;transition:all .15s}
 .shop-item:hover{border-color:var(--gold);transform:translateY(-3px)}
 .shop-item.sold{opacity:.3;pointer-events:none}
+.shop-item.si-dojo{border-color:rgba(46,204,113,.35);background:linear-gradient(180deg,rgba(46,204,113,.08),var(--panel))}
+.shop-item.si-dojo:hover{border-color:#2ecc71}
+.shop-item.si-scroll{border-color:rgba(155,89,182,.35);background:linear-gradient(180deg,rgba(155,89,182,.08),var(--panel))}
+.shop-item.si-scroll:hover{border-color:#9b59b6}
 .si-type{font-size:8px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px}
 .si-emoji{font-size:26px;margin-bottom:3px}
 .si-name{font-size:12px;font-weight:700;margin-bottom:2px}
@@ -225,10 +229,11 @@ const HAND_DEFS={
 };
 const HAND_ORDER=['STRAIGHT_FLUSH','FOUR_KIND','FULL_HOUSE','FLUSH','STRAIGHT','THREE_KIND','TWO_PAIR','PAIR','HIGH_CARD'];
 const JOKER_DEFS=[
+  // ── Card-phase jokers ──
   {id:'iron_sensei',name:'Iron Sensei',emoji:'🥋',desc:'+4 Mult',cost:5,rarity:'C',sell:3,apply:s=>{s.mult+=4}},
   {id:'golden_katana',name:'Golden Katana',emoji:'🗡️',desc:'+30 Base',cost:5,rarity:'C',sell:3,apply:s=>{s.chips+=30}},
   {id:'war_fan',name:'War Fan',emoji:'🪭',desc:'+15 Base, +2 Mult',cost:5,rarity:'C',sell:3,apply:s=>{s.chips+=15;s.mult+=2}},
-  {id:'fortune_cookie',name:'Fortune Cookie',emoji:'🥠',desc:'Earn $4 end of round',cost:5,rarity:'C',sell:3,apply:null,roundMoney:4},
+  {id:'fortune_cookie',name:'Fortune Cookie',emoji:'🥠',desc:'Earn $2 end of round',cost:5,rarity:'C',sell:3,apply:null,roundMoney:2},
   {id:'ronin_spirit',name:'Ronin Spirit',emoji:'👤',desc:'+10 Mult if 1 card',cost:5,rarity:'C',sell:3,apply:s=>{if(s.played===1)s.mult+=10}},
   {id:'swift_student',name:'Swift Student',emoji:'💨',desc:'+3 Mult per card played',cost:6,rarity:'U',sell:4,apply:s=>{s.mult+=s.played*3}},
   {id:'dojo_master',name:'Dojo Master',emoji:'🏯',desc:'×2 Mult if 4+ cards',cost:7,rarity:'U',sell:4,apply:s=>{if(s.played>=4)s.xMult*=2}},
@@ -239,7 +244,18 @@ const JOKER_DEFS=[
   {id:'honor_guard',name:'Honor Guard',emoji:'⛩️',desc:'+20 Base per Joker',cost:8,rarity:'R',sell:5,apply:s=>{s.chips+=s.jokerCount*20}},
   {id:'shadow_clone',name:'Shadow Clone',emoji:'🥷',desc:'+1 hand per round',cost:8,rarity:'R',sell:5,apply:null,bonusHands:1},
   {id:'shoguns_helm',name:"Shogun's Helm",emoji:'⛑️',desc:'+1 discard per round',cost:7,rarity:'R',sell:5,apply:null,bonusDiscards:1},
+  // ── Dojo-phase jokers ──
+  {id:'megaphone',name:'Megaphone',emoji:'📢',desc:'+20px teach radius',cost:5,rarity:'C',sell:3,apply:null,dojoRadius:20},
+  {id:'ad_campaign',name:'Ad Campaign',emoji:'📺',desc:'Attract wealthier students (+50%)',cost:5,rarity:'C',sell:3,apply:null,dojoMoneyMult:1.5},
+  {id:'running_shoes',name:'Running Shoes',emoji:'👟',desc:'+25% teacher speed',cost:5,rarity:'C',sell:3,apply:null,dojoSpeed:1.25},
+  {id:'hall_monitor',name:'Hall Monitor',emoji:'📋',desc:'Students walk 30% slower',cost:6,rarity:'U',sell:4,apply:null,dojoStudentSpeedMult:.7},
+  {id:'tip_jar',name:'Tip Jar',emoji:'🫙',desc:'$1 bonus per student taught',cost:6,rarity:'U',sell:4,apply:null,dojoTipPerStudent:1},
+  {id:'yoga_mat',name:'Yoga Mat',emoji:'🧘',desc:'Recover from stun 2× faster',cost:6,rarity:'U',sell:4,apply:null,dojoStunRecovery:2},
+  {id:'senseis_aura',name:"Sensei's Aura",emoji:'🌟',desc:'Double teach radius',cost:8,rarity:'R',sell:5,apply:null,dojoRadiusMult:2},
+  {id:'vip_lesson',name:'VIP Lesson',emoji:'💎',desc:'2× close-range teaching bonus',cost:8,rarity:'R',sell:5,apply:null,dojoCloseMult:2},
+  {id:'bamboo_armor',name:'Bamboo Armor',emoji:'🎍',desc:'Halve money lost when hit',cost:6,rarity:'U',sell:4,apply:null,dojoHitShield:.5},
 ];
+function isDojoJoker(d){return d&&(d.dojoRadius||d.dojoRadiusMult||d.dojoMoneyMult||d.dojoSpeed||d.dojoStudentSpeedMult||d.dojoMagnet||d.dojoStunRecovery||d.dojoCloseMult||d.dojoTipPerStudent||d.dojoHitShield)}
 const PLANET_DEFS=[
   {hand:'HIGH_CARD',name:'Practice Dummy',emoji:'🎯'},
   {hand:'PAIR',name:'Training Weights',emoji:'🏋️'},
@@ -252,16 +268,18 @@ const PLANET_DEFS=[
   {hand:'STRAIGHT_FLUSH',name:'Sacred Temple',emoji:'🛕'},
 ];
 // Per ante: [students, baseSpeed, swordLen, moneyTarget] for small/big/boss
-// Teaching in the dojo earns $ directly; power is fuel for movement
+// Teaching in the dojo earns $ directly; time (seconds) is fuel for movement
+const POWER_PER_SEC=18; // 0.3 drain/tick × 60 ticks
+function fmtTime(p){return(p/POWER_PER_SEC).toFixed(1)+'s'}
 const ANTE_CFG=[
-  {stu:[2,3,4],  spd:1.2, swd:32, tgt:[15,22,30]},
-  {stu:[3,4,5],  spd:1.4, swd:34, tgt:[25,38,52]},
-  {stu:[4,5,6],  spd:1.6, swd:36, tgt:[38,55,78]},
-  {stu:[5,6,7],  spd:1.7, swd:38, tgt:[52,75,105]},
-  {stu:[6,7,8],  spd:1.9, swd:40, tgt:[68,98,138]},
-  {stu:[7,8,9],  spd:2.0, swd:42, tgt:[85,125,175]},
-  {stu:[8,9,10], spd:2.2, swd:44, tgt:[105,155,215]},
-  {stu:[9,10,12],spd:2.4, swd:46, tgt:[130,190,260]},
+  {stu:[2,3,4],  spd:1.2, swd:32, tgt:[6,10,14]},
+  {stu:[3,4,5],  spd:1.4, swd:34, tgt:[11,17,24]},
+  {stu:[4,5,6],  spd:1.6, swd:36, tgt:[17,26,36]},
+  {stu:[5,6,7],  spd:1.7, swd:38, tgt:[24,36,50]},
+  {stu:[6,7,8],  spd:1.9, swd:40, tgt:[32,48,66]},
+  {stu:[7,8,9],  spd:2.0, swd:42, tgt:[42,62,86]},
+  {stu:[8,9,10], spd:2.2, swd:44, tgt:[54,80,110]},
+  {stu:[9,10,12],spd:2.4, swd:46, tgt:[68,100,140]},
 ];
 const BOSS_BLINDS=[
   {name:'The Student',desc:'Teacher moves slower',eff:'slowTeacher'},
@@ -269,7 +287,13 @@ const BOSS_BLINDS=[
   {name:'The Shogun',desc:'Longer swords',eff:'longSwords'},
   {name:'The Ninja',desc:'Students are invisible',eff:'invisible'},
   {name:'The Dragon',desc:'Learn radius halved',eff:'halfRadius'},
-  {name:'The Demon',desc:'Power drains constantly',eff:'powerLeak'},
+  {name:'The Demon',desc:'Time drains faster',eff:'powerLeak'},
+  {name:'The Mirror',desc:'Controls are reversed',eff:'reverseControls'},
+  {name:'The Swarm',desc:'Double the students',eff:'doubleStudents'},
+  {name:'The Ghost',desc:'Students flicker in and out',eff:'flicker'},
+  {name:'The Turtle',desc:'Teacher moves slower too',eff:'slowSelf'},
+  {name:'The Storm',desc:'Students speed up over time',eff:'accelerate'},
+  {name:'The Wall',desc:'Dojo is narrower',eff:'narrowDojo'},
 ];
 const BLIND_NAMES=['Small Blind','Big Blind','Boss Blind'];
 const STUDENT_COLORS=['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#e84393','#00cec9','#fdcb6e','#6c5ce7','#fab1a0'];
@@ -373,8 +397,11 @@ function calcScore(type,scoringCards,playedCards){
   G.jokers.forEach(j=>{const def=JOKER_DEFS.find(x=>x.id===j.id);if(def?.apply)def.apply(ctx)});
   return{chips:Math.round(ctx.chips),mult:Math.round(ctx.mult*10)/10,xMult:Math.round(ctx.xMult*10)/10,total:Math.max(0,Math.floor(ctx.chips*ctx.mult*ctx.xMult))};
 }
-function getLearnRadius(currentPower){
-  return 80+Math.min(60,Math.floor(currentPower/10));
+function getLearnRadius(){
+  let r=70;
+  G.jokers.forEach(j=>{const d=JOKER_DEFS.find(x=>x.id===j.id);if(d?.dojoRadius)r+=d.dojoRadius;if(d?.dojoRadiusMult)r=Math.floor(r*d.dojoRadiusMult)});
+  if(G.bossEff==='halfRadius')r=Math.floor(r/2);
+  return r;
 }
 
 // ═══════════════════════════════════════
@@ -481,11 +508,11 @@ function animateScoring(ev,result,onComplete){
   // Show total
   setTimeout(()=>{
     const totalEl=$('ss-total');
-    if(totalEl)totalEl.innerHTML=`<span style="color:#fff;font-size:28px">+${result.total.toLocaleString()}</span> <span style="color:var(--gold)">⚡</span>`;
+    if(totalEl)totalEl.innerHTML=`<span style="color:#fff;font-size:28px">+${fmtTime(result.total)}</span> <span style="color:var(--gold)">⏱️</span>`;
     const pv=document.querySelector('.power-val');
     if(pv){const start=G.power,end=G.power+result.total,dur=500,t0=performance.now();
-      (function tick(now){const p=clamp((now-t0)/dur,0,1);pv.textContent=Math.floor(start+(end-start)*p);
-        if(p<1)requestAnimationFrame(tick);else pv.textContent=end})(t0)}
+      (function tick(now){const p=clamp((now-t0)/dur,0,1);pv.textContent=fmtTime(Math.floor(start+(end-start)*p));
+        if(p<1)requestAnimationFrame(tick);else pv.textContent=fmtTime(end)})(t0)}
     setTimeout(onComplete,900);
   },delay);
 }
@@ -528,9 +555,9 @@ function createStudent(i,total){
     w:24,h:24,speed:spd,swordLen:sLen,swordAngle:0,
     swingPattern:SWING_PATTERNS[patIdx],swingSpeed:swSpd,
     time:Math.random()*100,color:STUDENT_COLORS[i%STUDENT_COLORS.length],
-    goingUp:true,completed:false,wobble:.3+Math.random()*.5,learning:false,
+    goingUp:true,completed:false,wasTaught:false,wobble:.3+Math.random()*.5,learning:false,
     chipValue:10+G.ante*4+Math.floor(Math.random()*8),
-    moneyValue:1+G.ante*0.5+Math.random(),
+    moneyValue:0.5+G.ante*0.25+Math.random()*0.5,
   };
 }
 
@@ -539,10 +566,25 @@ function createStudent(i,total){
 // ═══════════════════════════════════════
 function startAction(){
   const cfg=ANTE_CFG[G.ante-1];
-  const stuCount=cfg.stu[G.blind];
+  let stuCount=cfg.stu[G.blind];
+  if(G.bossEff==='doubleStudents')stuCount*=2;
   G.blindTarget=cfg.tgt[G.blind];G.dojoMoney=0;
   G.teacher=createTeacher();G.students=[];
-  G.teacherSpeedMult=G.bossEff==='slowTeacher'?.6:1;
+  G.teacherSpeedMult=G.bossEff==='slowTeacher'?.6:G.bossEff==='slowSelf'?.5:1;
+  G.actionTime=0;G.overTargetTime=0;G.waveNum=1;
+  // Precompute dojo joker bonuses
+  G.dojoMoneyMult=1;G.dojoCloseMult=1;G.dojoStudentSpeedMult=1;
+  G.dojoMagnet=false;G.dojoStunRecovery=1;G.dojoTipPerStudent=0;G.dojoHitShield=1;
+  G.jokers.forEach(j=>{const d=JOKER_DEFS.find(x=>x.id===j.id);
+    if(d?.dojoMoneyMult)G.dojoMoneyMult*=d.dojoMoneyMult;
+    if(d?.dojoCloseMult)G.dojoCloseMult*=d.dojoCloseMult;
+    if(d?.dojoStudentSpeedMult)G.dojoStudentSpeedMult*=d.dojoStudentSpeedMult;
+    if(d?.dojoSpeed)G.teacherSpeedMult*=d.dojoSpeed;
+    if(d?.dojoMagnet)G.dojoMagnet=true;
+    if(d?.dojoStunRecovery)G.dojoStunRecovery*=d.dojoStunRecovery;
+    if(d?.dojoTipPerStudent)G.dojoTipPerStudent+=d.dojoTipPerStudent;
+    if(d?.dojoHitShield)G.dojoHitShield*=d.dojoHitShield;
+  });
   for(let i=0;i<stuCount;i++)G.students.push(createStudent(i,stuCount));
   G.actionState='playing';G.hitFlash=0;
   showScreen(null);
@@ -558,49 +600,71 @@ function actionLoop(){
 }
 function actionUpdate(){
   if(G.actionState!=='playing')return;
+  G.actionTime=(G.actionTime||0)+.016;
   const t=G.teacher,ts=t.speed*G.teacherSpeedMult;
-  // Power drain while moving
-  const moving=keys.ArrowLeft||keys.ArrowRight||keys.ArrowUp||keys.ArrowDown;
-  if(moving&&G.power>0){
-    if(keys.ArrowLeft)t.x-=ts;if(keys.ArrowRight)t.x+=ts;
-    if(keys.ArrowUp)t.y-=ts;if(keys.ArrowDown)t.y+=ts;
-    G.power=Math.max(0,G.power-0.3);
+  const rev=G.bossEff==='reverseControls'?-1:1;
+  // Timer counts down — accelerates after hitting target
+  let drain=0.3;
+  if(G.bossEff==='powerLeak')drain+=0.15;
+  if(G.overTargetTime>0){
+    // Double drain speed every 3 real seconds past goal
+    drain*=Math.pow(2,G.overTargetTime/180); // 180 ticks = 3 seconds
+    G.overTargetTime++;
+  } else if(Math.floor(G.dojoMoney)>=G.blindTarget){
+    G.overTargetTime=1;
   }
-  // Boss: passive power drain
-  if(G.bossEff==='powerLeak')G.power=Math.max(0,G.power-0.15);
-  t.x=clamp(t.x,50,CW-50);t.y=clamp(t.y,DOJO_TOP+10,DOJO_BOT-30);
-  let learnR=getLearnRadius(G.power);
-  if(G.bossEff==='halfRadius')learnR=Math.floor(learnR/2);
-  let allDone=true;
+  G.power=Math.max(0,G.power-drain);
+  if(G.power<=0){G.actionState=Math.floor(G.dojoMoney)>=G.blindTarget?'won':'lost';endAction(G.actionState==='won');return}
+  // Stun ticks down (dojo joker can speed recovery)
+  if(G.hitFlash>0)G.hitFlash-=G.dojoStunRecovery;
+  // Movement is free, but blocked while stunned
+  if(G.hitFlash<=0){
+    if(keys.ArrowLeft)t.x-=ts*rev;if(keys.ArrowRight)t.x+=ts*rev;
+    if(keys.ArrowUp)t.y-=ts*rev;if(keys.ArrowDown)t.y+=ts*rev;
+  }
+  const xMin=G.bossEff==='narrowDojo'?120:50,xMax=G.bossEff==='narrowDojo'?CW-120:CW-50;
+  t.x=clamp(t.x,xMin,xMax);t.y=clamp(t.y,DOJO_TOP+10,DOJO_BOT-30);
+  const learnR=getLearnRadius();
+  let allDone=true;let taughtCount=0;
   for(const s of G.students){
-    if(s.completed){continue}
+    if(s.completed){if(s.wasTaught)taughtCount++;continue}
     allDone=false;
+    // Student speed (boss + joker)
+    const spdMult=(G.bossEff==='accelerate'?1+G.actionTime*0.03:1)*G.dojoStudentSpeedMult;
     // Movement
-    if(s.goingUp){s.y-=s.speed;if(s.y<=DOJO_TOP+80)s.goingUp=false}
-    else{s.y+=s.speed;if(s.y>=DOJO_BOT){s.y=DOJO_BOT;s.completed=true;continue}}
+    if(s.goingUp){s.y-=s.speed*spdMult;if(s.y<=DOJO_TOP+80)s.goingUp=false}
+    else{s.y+=s.speed*spdMult;if(s.y>=DOJO_BOT){s.y=DOJO_BOT;s.completed=true;if(s.wasTaught)G.dojoMoney+=G.dojoTipPerStudent;continue}}
     // Chase boss
     if(G.bossEff==='chase'){
       const dx=t.x-s.x;s.baseX+=Math.sign(dx)*.4;s.baseX=clamp(s.baseX,60,CW-60);
     }
+    // Magnet: students drift toward teacher
+    if(G.dojoMagnet){const dx=t.x-s.x;s.baseX+=Math.sign(dx)*.25;s.baseX=clamp(s.baseX,60,CW-60)}
     s.x=s.baseX+Math.sin(s.time*s.wobble)*18;
+    if(G.bossEff==='narrowDojo')s.x=clamp(s.x,120,CW-120);
     // Swing
     s.time+=.016;
     const raw=s.swingPattern(s.time,s.swingSpeed);
     s.swordAngle=raw*Math.PI*.8-Math.PI/2;
-    // Teach — earn money directly (closer = bonus)
+    // Teach — earn money (closer = bonus, dojo joker multipliers)
     const dx=s.x-t.x,dy=s.y-t.y,dist=Math.sqrt(dx*dx+dy*dy);
     s.learning=dist<learnR;
-    if(s.learning){const close=dist<learnR/2?1.5:1;G.dojoMoney+=s.moneyValue*close/60}
-    // Collision — costs power (cooldown via hitFlash)
+    if(s.learning){s.wasTaught=true;const close=dist<learnR/3?1.3*G.dojoCloseMult:1;G.dojoMoney+=s.moneyValue*close*G.dojoMoneyMult/60}
+    // Collision — stun + money penalty
     if(G.hitFlash<=0&&checkHit(s,t)){
-      G.power=Math.max(0,G.power-30);G.hitFlash=30;
-      if(G.power<=0){G.actionState='lost';endAction(false);return}
+      G.hitFlash=30;
+      const penalty=(1+G.ante*0.5)*G.dojoHitShield;
+      G.dojoMoney=Math.max(0,G.dojoMoney-penalty);
     }
   }
-  if(G.hitFlash>0)G.hitFlash--;
+  // All students done — clean up and spawn a new wave
   if(allDone){
-    G.actionState=Math.floor(G.dojoMoney)>=G.blindTarget?'won':'lost';
-    endAction(G.actionState==='won');
+    G.students=[];
+    const cfg=ANTE_CFG[G.ante-1];
+    let stuCount=cfg.stu[G.blind];
+    if(G.bossEff==='doubleStudents')stuCount*=2;
+    G.waveNum=(G.waveNum||1)+1;
+    for(let i=0;i<stuCount;i++)G.students.push(createStudent(i,stuCount));
   }
 }
 function checkHit(s,t){
@@ -636,8 +700,7 @@ function endAction(won){
 // ACTION PHASE — DRAWING
 // ═══════════════════════════════════════
 function actionDraw(){
-  const t=G.teacher;let learnR=getLearnRadius(G.power);
-  if(G.bossEff==='halfRadius')learnR=Math.floor(learnR/2);
+  const t=G.teacher;const learnR=getLearnRadius();
   // Floor
   ctx.fillStyle='#c8a96e';ctx.fillRect(0,0,CW,CH);
   ctx.strokeStyle='#b89a5a';ctx.lineWidth=1;
@@ -646,6 +709,11 @@ function actionDraw(){
   // Walls
   ctx.fillStyle='#8b6914';ctx.fillRect(0,0,CW,DOJO_TOP-10);ctx.fillRect(0,DOJO_BOT+20,CW,CH-DOJO_BOT-20);
   ctx.fillStyle='#a07d1a';for(let x=0;x<CW;x+=70){ctx.fillRect(x,0,34,DOJO_TOP-10);ctx.fillRect(x,DOJO_BOT+20,34,CH-DOJO_BOT-20)}
+  // Narrow dojo side walls
+  if(G.bossEff==='narrowDojo'){
+    ctx.fillStyle='#8b6914';ctx.fillRect(0,DOJO_TOP-10,110,DOJO_BOT-DOJO_TOP+30);ctx.fillRect(CW-110,DOJO_TOP-10,110,DOJO_BOT-DOJO_TOP+30);
+    ctx.fillStyle='#a07d1a';for(let y=DOJO_TOP-10;y<DOJO_BOT+20;y+=70){ctx.fillRect(0,y,110,34);ctx.fillRect(CW-110,y,110,34)}
+  }
   // Banner
   ctx.fillStyle='#c0392b';ctx.fillRect(CW/2-80,10,160,36);
   ctx.fillStyle='#f0e6d2';ctx.font='bold 16px serif';ctx.textAlign='center';ctx.fillText('道場',CW/2,34);
@@ -660,7 +728,7 @@ function actionDraw(){
   // Students
   for(const s of G.students){
     if(s.completed)continue;
-    const vis=G.bossEff!=='invisible';
+    const vis=G.bossEff==='invisible'?false:G.bossEff==='flicker'?Math.sin(s.time*4+s.baseX)>0:true;
     // Shadow
     ctx.fillStyle='rgba(0,0,0,.15)';ctx.beginPath();ctx.ellipse(s.x,s.y+s.h/2+4,16,5,0,0,Math.PI*2);ctx.fill();
     if(vis){
@@ -683,18 +751,29 @@ function actionDraw(){
   }
   // Teacher
   if(t){
-    ctx.fillStyle='#2c3e50';ctx.beginPath();ctx.arc(t.x,t.y,t.w/2,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='#1a252f';ctx.fillRect(t.x-14,t.y+10,28,16);
+    const stunned=G.hitFlash>0;
+    // Stun ring
+    if(stunned){
+      ctx.strokeStyle=`rgba(231,76,60,${.5+Math.sin(G.actionTime*20)*.3})`;ctx.lineWidth=3;
+      ctx.beginPath();ctx.arc(t.x,t.y,t.w/2+6,0,Math.PI*2);ctx.stroke();
+    }
+    ctx.fillStyle=stunned?'#e74c3c':'#2c3e50';ctx.beginPath();ctx.arc(t.x,t.y,t.w/2,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=stunned?'#c0392b':'#1a252f';ctx.fillRect(t.x-14,t.y+10,28,16);
     ctx.fillStyle='#fad7a0';ctx.beginPath();ctx.arc(t.x,t.y-13,11,0,Math.PI*2);ctx.fill();
     ctx.fillStyle='#fff';ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.fillText('先生',t.x,t.y+3);
-    // Power meter above teacher
-    const pw=40,ph=4,px=t.x-pw/2,py=t.y-32;
+    // Stun stars above head
+    if(stunned){
+      ctx.font='16px sans-serif';ctx.textAlign='center';
+      ctx.fillText('💫',t.x,t.y-30);
+    }
+    // Time meter above teacher
+    const pw=40,ph=4,px=t.x-pw/2,py=t.y-42;
     const pFill=G.powerStart>0?clamp(G.power/G.powerStart,0,1):0;
     ctx.fillStyle='rgba(0,0,0,.4)';ctx.fillRect(px,py,pw,ph);
     ctx.fillStyle=pFill>.3?'#f1c40f':'#e74c3c';ctx.fillRect(px,py,pw*pFill,ph);
   }
-  // Hit flash
-  if(G.hitFlash>0){ctx.fillStyle=`rgba(255,0,0,${G.hitFlash/30})`;ctx.fillRect(0,0,CW,CH)}
+  // Hit flash (stun indicator)
+  if(G.hitFlash>0){ctx.fillStyle=`rgba(255,100,0,${Math.min(G.hitFlash,30)/60})`;ctx.fillRect(0,0,CW,CH)}
   // Win/loss overlay
   const dm=Math.floor(G.dojoMoney);
   if(G.actionState==='won'){
@@ -704,7 +783,7 @@ function actionDraw(){
   } else if(G.actionState==='lost'){
     ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(0,0,CW,CH);
     ctx.fillStyle='#fe5f55';ctx.font='bold 36px sans-serif';ctx.textAlign='center';
-    ctx.fillText(dm<G.blindTarget?'✗ Not Enough Money!':'✗ Out of Energy!',CW/2,CH/2-10);
+    ctx.fillText(dm<G.blindTarget?'✗ Not Enough Money!':'✗ Time\'s Up!',CW/2,CH/2-10);
     ctx.font='bold 16px sans-serif';ctx.fillStyle='#e8e1d5';ctx.fillText('$'+dm+' / $'+G.blindTarget,CW/2,CH/2+20);
   }
 }
@@ -765,19 +844,19 @@ function renderMenu(){
     <div class="title">⚔️ Beginners with Swords</div>
     <div class="subtitle">A Roguelike Deck-Builder Dojo</div>
     <div class="howto">
-    <b>🃏 Card Phase</b> — Play poker hands to build ⚡ <em>energy</em><br>
-    <b>🏯 Dojo Phase</b> — Spend energy to move! Stay near students to teach them and earn 💰<br>
+    <b>🃏 Card Phase</b> — Play poker hands to earn ⏱️ <em>dojo time</em><br>
+    <b>🏯 Dojo Phase</b> — Spend time to move! Stay near students to teach them and earn 💰<br>
     <b>🎯 Goal</b> — Earn enough money in the dojo to beat each blind's target<br><br>
-    <span style="color:var(--dim)">Better hands = more energy = more movement = more money<br>
-    Getting hit costs energy • When energy runs out, you freeze!</span>
+    <span style="color:var(--dim)">Better hands = more time = more movement = more money<br>
+    Getting hit stuns you • When time runs out, the dojo closes!</span>
     </div>
     <button class="btn btn-play" onclick="startGame()">Draw Your Blade</button>`;
 }
 function renderBlindIntro(){
   const cfg=ANTE_CFG[G.ante-1];const tgt=cfg.tgt[G.blind];const stuN=cfg.stu[G.blind];
   const isBoss=G.blind===2;
-  const bName=isBoss?pick(BOSS_BLINDS).name:'';
-  const bDesc=isBoss?(G.boss||pick(BOSS_BLINDS)).desc:'';
+  const bName=isBoss&&G.boss?G.boss.name:'';
+  const bDesc=isBoss&&G.boss?G.boss.desc:'';
   $('blind-intro').innerHTML=`<div class="bi-box">
     <div class="bi-type">${BLIND_NAMES[G.blind]} · Ante ${G.ante}</div>
     <div class="bi-name">${isBoss?bName:BLIND_NAMES[G.blind]}</div>
@@ -792,11 +871,12 @@ function renderCards(){
   if(ev){
     const sc=calcScore(ev.type,ev.scoring,sel);const d=HAND_DEFS[ev.type];const l=G.handLevels[ev.type]||0;
     const fm=Math.round(sc.mult*sc.xMult*10)/10;
-    prevHTML=`<span class="preview-type">${d.name}${l>0?' Lv.'+(l+1):''}</span> — <span class="preview-chips">${sc.chips}</span> <span style="color:var(--dim)">×</span> <span class="preview-mult">${fm}</span> <span style="color:var(--dim)">=</span> <span style="color:#fff">+${sc.total.toLocaleString()} power</span>`;
+    prevHTML=`<span class="preview-type">${d.name}${l>0?' Lv.'+(l+1):''}</span> — <span class="preview-chips">${sc.chips}</span> <span style="color:var(--dim)">×</span> <span class="preview-mult">${fm}</span> <span style="color:var(--dim)">=</span> <span style="color:#fff">+${fmtTime(sc.total)}</span>`;
   }
   let jHTML='';
-  G.jokers.forEach(j=>{const d=JOKER_DEFS.find(x=>x.id===j.id);const rar=d.rarity==='C'?'Common':d.rarity==='U'?'Uncommon':'Rare';jHTML+=`<div class="joker-card"><div class="j-emoji">${d.emoji}</div><div class="j-name">${d.name}</div><div class="tooltip"><div class="tt-name">${d.name}</div><div class="tt-desc">${d.desc}</div><div class="tt-meta">${rar} · Sell $${d.sell}</div></div></div>`});
-  for(let i=G.jokers.length;i<G.maxJokers;i++)jHTML+=`<div class="joker-slot">Empty</div>`;
+  const cardJokers=G.jokers.filter(j=>{const d=JOKER_DEFS.find(x=>x.id===j.id);return!isDojoJoker(d)});
+  cardJokers.forEach(j=>{const d=JOKER_DEFS.find(x=>x.id===j.id);const rar=d.rarity==='C'?'Common':d.rarity==='U'?'Uncommon':'Rare';jHTML+=`<div class="joker-card"><div class="j-emoji">${d.emoji}</div><div class="j-name">${d.name}</div><div class="tooltip"><div class="tt-name">${d.name}</div><div class="tt-desc">${d.desc}</div><div class="tt-meta">${rar} · Sell $${d.sell}</div></div></div>`});
+  for(let i=cardJokers.length;i<G.maxJokers-G.jokers.length+cardJokers.length;i++)jHTML+=`<div class="joker-slot">Empty</div>`;
   let cardsHTML='';
   G.hand.forEach((c,i)=>{const s=SUITS[c.suit];const sel2=G.selected.has(i)?'selected':'';
     cardsHTML+=`<div class="card ${sel2} ${s.css}" onclick="toggleCard(${i})"><div class="c-rank" style="color:${s.color}">${RANKS[c.rank]}</div><div class="c-suit-sym" style="color:${s.color}">${s.sym}</div><div class="c-bot" style="color:${s.color}">${RANKS[c.rank]}${s.sym}</div><div class="c-chips">+${RANK_CHIPS[c.rank]}</div></div>`;
@@ -813,7 +893,7 @@ function renderCards(){
     <div class="top-bar"><div class="ante">Ante ${G.ante} · ${BLIND_NAMES[G.blind]}${G.boss?' — <span style="color:var(--mult)">'+G.boss.name+'</span>':''}</div><div class="money">💰 $${G.money}</div></div>
     <div class="joker-area">${jHTML}</div>
     <div class="power-bar">
-      <span>⚡</span><span class="power-val">${G.power}</span><span style="font-size:13px;color:var(--dim)">Energy for Dojo</span>
+      <span>⏱️</span><span class="power-val">${fmtTime(G.power)}</span><span style="font-size:13px;color:var(--dim)">Dojo Time</span>
     </div>
     <div class="hand-area">${cardsHTML}</div>
     <div class="hand-preview">${prevHTML}</div>
@@ -830,14 +910,16 @@ function renderCards(){
 }
 function renderBuffSummary(){
   const tgt=ANTE_CFG[G.ante-1].tgt[G.blind];
-  const r=getLearnRadius(G.power);
+  const r=getLearnRadius();
+  const dojoJokers=G.jokers.map(j=>JOKER_DEFS.find(x=>x.id===j.id)).filter(isDojoJoker);
+  const djHTML=dojoJokers.length?'<div style="margin-top:6px;font-size:12px;color:var(--dim)">Dojo buffs: '+dojoJokers.map(d=>d.emoji+' '+d.name).join(' · ')+'</div>':'';
   $('buff-summary').innerHTML=`<div class="bs-box">
-    <div class="bs-title">⚡ Energy: ${G.power}</div>
+    <div class="bs-title">⏱️ Dojo Time: ${fmtTime(G.power)}</div>
     <div class="bs-buffs">
-      <div class="bs-buff"><div class="bb-icon">🏃</div><div class="bb-val">${G.power}</div><div class="bb-label">Movement Fuel</div></div>
+      <div class="bs-buff"><div class="bb-icon">⏱️</div><div class="bb-val">${fmtTime(G.power)}</div><div class="bb-label">Time Limit</div></div>
       <div class="bs-buff"><div class="bb-icon">📖</div><div class="bb-val">${r}px</div><div class="bb-label">Learn Radius</div></div>
-      <div class="bs-buff"><div class="bb-icon">⚔️</div><div class="bb-val" style="color:var(--mult)">−30⚡</div><div class="bb-label">Hit Cost</div></div>
-    </div>
+      <div class="bs-buff"><div class="bb-icon">⚔️</div><div class="bb-val" style="color:var(--mult)">Stun + −$</div><div class="bb-label">Hit Penalty</div></div>
+    </div>${djHTML}
     <div style="font-size:13px;color:var(--dim);margin-top:8px">Earn at least <span style="color:var(--gold)">$${tgt}</span> — Entering the dojo...</div>
   </div>`;
 }
@@ -845,19 +927,20 @@ function renderActionHUD(){
   const dm=Math.floor(G.dojoMoney);
   const tgt=G.blindTarget;const pct=clamp(dm/tgt*100,0,100);
   const pFill=G.powerStart>0?clamp(G.power/G.powerStart*100,0,100):0;
+  const overTgt=G.overTargetTime>0;
   $('action-hud').innerHTML=`
     <div class="hud-top">
       <div class="ht-left"><span>Ante ${G.ante} · ${BLIND_NAMES[G.blind]}</span>${G.boss?'<span style="color:var(--mult)">'+G.boss.name+'</span>':''}</div>
       <div class="ht-right">
-        <span style="font-size:13px;font-weight:700;color:${G.power>0?'#f1c40f':'#e74c3c'}">⚡${Math.floor(G.power)}</span>
+        <span style="font-size:13px;font-weight:700;color:${G.power>0?'#f1c40f':'#e74c3c'}">⏱️${fmtTime(G.power)}${overTgt?' 🔥':''}</span>
         <span class="hud-learn" style="color:${dm>=tgt?'#2ecc71':'var(--gold)'}">
-          💰 $${dm} / $${tgt}
+          💰 $${dm} / $${tgt}${overTgt?' ✓':''}
         </span>
       </div>
     </div>
-    <div class="hud-bar"><div class="hud-bar-fill" style="width:${pct}%;background:linear-gradient(90deg,var(--gold),#ffd700)"></div></div>
+    <div class="hud-bar"><div class="hud-bar-fill" style="width:${pct}%;background:linear-gradient(90deg,${overTgt?'#2ecc71,#27ae60':'var(--gold),#ffd700'})"></div></div>
     <div class="hud-buffs">
-      <span>⚡${Math.floor(G.power)}/${G.powerStart}</span><span>📖${getLearnRadius(G.power)}px</span>
+      <span>⏱️${fmtTime(G.power)}/${fmtTime(G.powerStart)}</span><span>📖${getLearnRadius()}px</span>${G.hitFlash>0?'<span style="color:var(--mult)">💫 Stunned!</span>':''}
     </div>`;
 }
 function renderResults(won,dojoEarned,interest,jMoney){
@@ -879,9 +962,11 @@ function renderShop(){
   G.shopItems.forEach((item,i)=>{
     const sold=item.sold?'sold':'';
     if(item.type==='joker'){const d=item.def;const can=G.money>=d.cost&&G.jokers.length<G.maxJokers&&!item.sold;
-      itemsHTML+=`<div class="shop-item ${sold}" onclick="${can?'buyShopItem('+i+')':''}" style="${can?'':'opacity:.5'}"><div class="si-type">${d.rarity==='C'?'Common':d.rarity==='U'?'Uncommon':'Rare'} Joker</div><div class="si-emoji">${d.emoji}</div><div class="si-name">${d.name}</div><div class="si-desc">${d.desc}</div><div class="si-cost">${item.sold?'SOLD':'$'+d.cost}</div></div>`}
+      const isDojo=isDojoJoker(d);
+      const cls=isDojo?'si-dojo':'';const typeLabel=isDojo?'Dojo':'Card';const rar=d.rarity==='C'?'Common':d.rarity==='U'?'Uncommon':'Rare';
+      itemsHTML+=`<div class="shop-item ${cls} ${sold}" onclick="${can?'buyShopItem('+i+')':''}" style="${can?'':'opacity:.5'}"><div class="si-type">${rar} ${typeLabel} Joker</div><div class="si-emoji">${d.emoji}</div><div class="si-name">${d.name}</div><div class="si-desc">${d.desc}</div><div class="si-cost">${item.sold?'SOLD':'$'+d.cost}</div></div>`}
     else{const d=item.def;const cost=item.cost||3;const l=G.handLevels[d.hand]||0;const hd=HAND_DEFS[d.hand];const can=G.money>=cost&&!item.sold;
-      itemsHTML+=`<div class="shop-item ${sold}" onclick="${can?'buyShopItem('+i+')':''}" style="${can?'':'opacity:.5'}"><div class="si-type">Sword Scroll</div><div class="si-emoji">${d.emoji}</div><div class="si-name">${d.name}</div><div class="si-desc">Level up ${hd.name} (Lv ${l}→${l+1})</div><div class="si-cost">${item.sold?'SOLD':'$'+cost}</div></div>`}
+      itemsHTML+=`<div class="shop-item si-scroll ${sold}" onclick="${can?'buyShopItem('+i+')':''}" style="${can?'':'opacity:.5'}"><div class="si-type">Sword Scroll</div><div class="si-emoji">${d.emoji}</div><div class="si-name">${d.name}</div><div class="si-desc">Level up ${hd.name} (Lv ${l}→${l+1})</div><div class="si-cost">${item.sold?'SOLD':'$'+cost}</div></div>`}
   });
   let yjHTML='';G.jokers.forEach((j,i)=>{const d=JOKER_DEFS.find(x=>x.id===j.id);
     yjHTML+=`<div class="joker-card" onclick="sellJoker(${i})" style="cursor:pointer"><div class="j-emoji">${d.emoji}</div><div class="j-name">${d.name}</div><div class="j-sell">Sell $${d.sell}</div><div class="tooltip"><div class="tt-name">${d.name}</div><div class="tt-desc">${d.desc}</div><div class="tt-meta">Click to sell $${d.sell}</div></div></div>`});
@@ -911,7 +996,7 @@ function renderGameOver(){
     <div style="font-size:16px;margin-bottom:8px">
       <span style="color:var(--gold)">💰 $${dm}</span>
       <span style="color:var(--dim)"> / $${G.blindTarget}</span>
-      ${G.power<=0?'<br><span style="color:var(--mult);font-size:13px">⚡ Out of energy!</span>':''}
+      ${G.power<=0?'<br><span style="color:var(--mult);font-size:13px">⏱️ Time\'s up!</span>':''}
     </div>
     <div style="margin-bottom:16px">${G.jokers.map(j=>{const d=JOKER_DEFS.find(x=>x.id===j.id);return d?d.emoji:''}).join(' ')}</div>
     <button class="btn btn-play" onclick="startGame()">Try Again</button>
