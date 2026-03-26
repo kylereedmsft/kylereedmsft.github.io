@@ -510,13 +510,51 @@
       ];
     }
 
+    // sRGB → linear
+    function srgbToLinear(c) {
+      c /= 255;
+      return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    }
+
+    // RGB → XYZ (D65)
+    function rgbToXyz(rgb) {
+      const r = srgbToLinear(rgb[0]), g = srgbToLinear(rgb[1]), b = srgbToLinear(rgb[2]);
+      return [
+        0.4124564 * r + 0.3575761 * g + 0.1804375 * b,
+        0.2126729 * r + 0.7151522 * g + 0.0721750 * b,
+        0.0193339 * r + 0.1191920 * g + 0.9503041 * b
+      ];
+    }
+
+    // XYZ → CIELAB
+    function xyzToLab(xyz) {
+      const Xn = 0.95047, Yn = 1.00000, Zn = 1.08883;
+      const f = t => t > 0.008856 ? Math.cbrt(t) : (903.3 * t + 16) / 116;
+      const fx = f(xyz[0] / Xn), fy = f(xyz[1] / Yn), fz = f(xyz[2] / Zn);
+      return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
+    }
+
+    function rgbToLab(rgb) { return xyzToLab(rgbToXyz(rgb)); }
+
+    // Multiplicative LCHA scoring — hue angle based, achromatic-aware
     function scoreGuess(actual, guess) {
-      const dr = actual[0] - guess[0];
-      const dg = actual[1] - guess[1];
-      const db = actual[2] - guess[2];
-      const dist = Math.sqrt(dr * dr + dg * dg + db * db);
-      const maxDist = Math.sqrt(255 * 255 * 3); // ~441.67
-      return Math.round(10 * (1 - dist / maxDist) * 10) / 10;
+      const Lmax = 65, Cmax = 90, HmaxDeg = 80, Amax = 65, achromThresh = 10, pH = 1.5;
+      const lab1 = rgbToLab(actual), lab2 = rgbToLab(guess);
+      const dL = Math.abs(lab1[0] - lab2[0]);
+      const C1 = Math.sqrt(lab1[1] * lab1[1] + lab1[2] * lab1[2]);
+      const C2 = Math.sqrt(lab2[1] * lab2[1] + lab2[2] * lab2[2]);
+      const dC = Math.abs(C1 - C2);
+      const h1 = Math.atan2(lab1[2], lab1[1]) * 180 / Math.PI;
+      const h2 = Math.atan2(lab2[2], lab2[1]) * 180 / Math.PI;
+      let dHue = Math.abs(h1 - h2);
+      if (dHue > 180) dHue = 360 - dHue;
+      const achrom = Math.max(Math.max(0, 1 - C1 / achromThresh), Math.max(0, 1 - C2 / achromThresh));
+      const achromDist = Math.max(C1, C2) * achrom;
+      const sL = Math.max(0, 1 - (dL / Lmax) * (dL / Lmax));
+      const sC = Math.max(0, 1 - (dC / Cmax) * (dC / Cmax));
+      const sH = Math.max(0, 1 - Math.pow(dHue / HmaxDeg, pH));
+      const sA = Math.max(0, 1 - (achromDist / Amax) * (achromDist / Amax));
+      return Math.round(sL * sC * sH * sA * 100) / 10;
     }
 
     function scoreClass(s) {
@@ -528,12 +566,26 @@
     }
 
     function getRating(total) {
-      if (total >= 48) return '🏆 Chromatic Genius!';
-      if (total >= 44) return '🎨 Color Master';
-      if (total >= 38) return '👁️ Sharp Eye';
-      if (total >= 30) return '🌈 Getting There';
-      if (total >= 20) return '🎯 Keep Practicing';
-      return '🔍 Color Curious';
+      if (total >= 49) return '🏆 You have an eyedropper tool in your brain';
+      if (total >= 47) return '👁️‍🗨️ The hex whisperer';
+      if (total >= 45) return '🧬 Color is literally in your DNA';
+      if (total >= 43) return '🎨 Bob Ross would be proud';
+      if (total >= 41) return '🔬 Your cones are overclocked';
+      if (total >= 39) return '🌈 You see colors that don\'t exist yet';
+      if (total >= 37) return '🧙 Wizard of #0z';
+      if (total >= 35) return '💅 Pantone called — they want to hire you';
+      if (total >= 33) return '🎯 Not bad, not bad at all';
+      if (total >= 31) return '👀 Your eyes are showing promise';
+      if (total >= 29) return '🤏 So close yet so far';
+      if (total >= 26) return '🫣 A for effort, C for chromaticity';
+      if (total >= 23) return '🎰 Were you guessing randomly? Be honest';
+      if (total >= 20) return '🫠 The colors are merely a suggestion to you';
+      if (total >= 16) return '🧑‍🎨 Art school might offer a refund';
+      if (total >= 12) return '🐕 You may be a golden retriever';
+      if (total >= 8)  return '🥔 You have the color sense of a potato';
+      if (total >= 5)  return '😎 Have you tried taking the sunglasses off?';
+      if (total >= 2)  return '👨‍⚕️ Have you checked with your eye doctor recently?';
+      return '🏳️ You just typed random hex codes, didn\'t you';
     }
 
     function randomKey() {

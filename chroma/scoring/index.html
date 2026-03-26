@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chroma — Scoring Lab</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2.5rem 1rem 4rem;
+    }
+
+    .back-link {
+      position: fixed;
+      top: 1rem;
+      left: 1.25rem;
+      color: #64748b;
+      text-decoration: none;
+      font-size: 0.9rem;
+      transition: color 0.2s;
+      z-index: 10;
+    }
+    .back-link:hover { color: #e2e8f0; }
+
+    .container {
+      max-width: 860px;
+      width: 100%;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    h1 {
+      font-size: 2.6rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      background: linear-gradient(135deg, #f87171, #fb923c, #facc15, #4ade80, #38bdf8, #a78bfa, #f472b6);
+      background-size: 200% 200%;
+      animation: gradientShift 6s ease infinite;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.3rem;
+    }
+
+    @keyframes gradientShift {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+
+    .subtitle {
+      color: #94a3b8;
+      font-size: 1.05rem;
+    }
+
+    /* ── Color Pickers ── */
+    .picker-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2rem;
+      margin: 2rem 0;
+      flex-wrap: wrap;
+    }
+
+    .picker-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .picker-label {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-weight: 600;
+    }
+
+    .swatch-wrapper {
+      position: relative;
+      width: 120px;
+      height: 120px;
+      border-radius: 1rem;
+      overflow: hidden;
+      border: 2px solid rgba(255,255,255,0.1);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      cursor: pointer;
+    }
+
+    .swatch-wrapper input[type="color"] {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      background: none;
+    }
+    .swatch-wrapper input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+    .swatch-wrapper input[type="color"]::-webkit-color-swatch { border: none; }
+    .swatch-wrapper input[type="color"]::-moz-color-swatch { border: none; }
+
+    .hex-input {
+      width: 120px;
+      text-align: center;
+      padding: 0.4rem 0.5rem;
+      border-radius: 0.5rem;
+      border: 1px solid #334155;
+      background: #1e293b;
+      color: #e2e8f0;
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-size: 0.95rem;
+      letter-spacing: 0.05em;
+    }
+    .hex-input:focus {
+      outline: none;
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 2px rgba(56,189,248,0.25);
+    }
+
+    .vs-label {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #475569;
+      align-self: center;
+      margin-top: 1.2rem;
+    }
+
+    .delta-preview {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .delta-swatch {
+      width: 40px;
+      height: 40px;
+      border-radius: 0.5rem;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .delta-arrow {
+      color: #475569;
+      font-size: 1.2rem;
+    }
+
+    .delta-info {
+      color: #64748b;
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-size: 0.8rem;
+    }
+
+    /* ── Presets ── */
+    .presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      justify-content: center;
+      margin-bottom: 2rem;
+    }
+
+    .preset-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 2rem;
+      border: 1px solid #334155;
+      background: #1e293b;
+      color: #94a3b8;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .preset-btn:hover {
+      border-color: #475569;
+      color: #e2e8f0;
+      background: #334155;
+    }
+
+    .preset-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+
+    /* ── Results Table ── */
+    .results {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      border-radius: 0.75rem;
+      overflow: hidden;
+      border: 1px solid #1e293b;
+    }
+
+    .results thead th {
+      background: #1e293b;
+      padding: 0.75rem 1rem;
+      text-align: left;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+      font-weight: 600;
+      border-bottom: 1px solid #334155;
+    }
+
+    .results thead th:nth-child(2) { text-align: right; }
+
+    .results tbody tr {
+      transition: background 0.15s;
+    }
+    .results tbody tr:hover {
+      background: rgba(56,189,248,0.04);
+    }
+
+    .results tbody td {
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      vertical-align: middle;
+    }
+
+    .results tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .algo-name {
+      font-weight: 600;
+      color: #e2e8f0;
+      font-size: 0.92rem;
+    }
+
+    .algo-tag {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 1rem;
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-left: 0.5rem;
+      vertical-align: middle;
+    }
+
+    .tag-current {
+      background: rgba(56,189,248,0.15);
+      color: #38bdf8;
+    }
+
+    .tag-favorite {
+      background: rgba(250,204,21,0.15);
+      color: #facc15;
+    }
+
+    .tag-reference {
+      background: rgba(148,163,184,0.15);
+      color: #94a3b8;
+    }
+
+    .tag-candidate {
+      background: rgba(74,222,128,0.15);
+      color: #4ade80;
+    }
+
+    .algo-desc {
+      color: #64748b;
+      font-size: 0.78rem;
+      margin-top: 0.15rem;
+    }
+
+    .score-cell {
+      text-align: right;
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-size: 1.1rem;
+      font-weight: 700;
+      min-width: 60px;
+    }
+
+    .bar-cell {
+      width: 35%;
+    }
+
+    .bar-track {
+      width: 100%;
+      height: 8px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.4s ease, background 0.4s ease;
+    }
+
+    /* Score colors */
+    .score-perfect { color: #4ade80; }
+    .score-great   { color: #86efac; }
+    .score-good    { color: #facc15; }
+    .score-ok      { color: #fb923c; }
+    .score-poor    { color: #f87171; }
+
+    .bar-perfect { background: #4ade80; }
+    .bar-great   { background: #86efac; }
+    .bar-good    { background: #facc15; }
+    .bar-ok      { background: #fb923c; }
+    .bar-poor    { background: #f87171; }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      h1 { font-size: 2rem; }
+      .swatch-wrapper { width: 90px; height: 90px; }
+      .hex-input { width: 90px; }
+      .picker-row { gap: 1rem; }
+      .results thead th, .results tbody td { padding: 0.5rem 0.6rem; }
+      .algo-desc { display: none; }
+      .bar-cell { width: 25%; }
+    }
+
+    /* ── Randomize button ── */
+    .randomize-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.5rem 1.2rem;
+      border-radius: 2rem;
+      border: 1px solid #334155;
+      background: #1e293b;
+      color: #94a3b8;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 1rem;
+    }
+    .randomize-btn:hover {
+      border-color: #38bdf8;
+      color: #e2e8f0;
+      background: rgba(56,189,248,0.1);
+    }
+  </style>
+</head>
+<body>
+  <a href="../" class="back-link">← Chroma</a>
+  <div class="container">
+    <header>
+      <h1>SCORING LAB</h1>
+      <p class="subtitle">Compare scoring algorithms side by side</p>
+    </header>
+
+    <div class="picker-row">
+      <div class="picker-group">
+        <span class="picker-label">Actual Color</span>
+        <div class="swatch-wrapper">
+          <input type="color" id="colorActual" value="#E63946">
+        </div>
+        <input type="text" class="hex-input" id="hexActual" value="#E63946" maxlength="7" spellcheck="false">
+      </div>
+      <span class="vs-label">vs</span>
+      <div class="picker-group">
+        <span class="picker-label">Guessed Color</span>
+        <div class="swatch-wrapper">
+          <input type="color" id="colorGuess" value="#C2185B">
+        </div>
+        <input type="text" class="hex-input" id="hexGuess" value="#C2185B" maxlength="7" spellcheck="false">
+      </div>
+    </div>
+
+    <div class="delta-preview" id="deltaPreview"></div>
+
+    <div style="text-align:center">
+      <button class="randomize-btn" id="randomizeBtn">🎲 Random Pair</button>
+    </div>
+
+    <div class="presets" id="presets"></div>
+
+    <table class="results" id="resultsTable">
+      <thead>
+        <tr>
+          <th>Algorithm</th>
+          <th>Score</th>
+          <th class="bar-cell">Distribution</th>
+        </tr>
+      </thead>
+      <tbody id="resultsBody"></tbody>
+    </table>
+  </div>
+
+  <script>
+    // ════════════════════════════════════════════
+    //  Color conversion helpers
+    // ════════════════════════════════════════════
+
+    function hexToRgb(hex) {
+      hex = hex.replace('#', '');
+      if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+      return [
+        parseInt(hex.substring(0, 2), 16),
+        parseInt(hex.substring(2, 4), 16),
+        parseInt(hex.substring(4, 6), 16)
+      ];
+    }
+
+    function rgbToHex(r, g, b) {
+      return '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('').toUpperCase();
+    }
+
+    // sRGB → linear
+    function srgbToLinear(c) {
+      c /= 255;
+      return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    }
+
+    // RGB → XYZ (D65)
+    function rgbToXyz(rgb) {
+      const r = srgbToLinear(rgb[0]);
+      const g = srgbToLinear(rgb[1]);
+      const b = srgbToLinear(rgb[2]);
+      return [
+        0.4124564 * r + 0.3575761 * g + 0.1804375 * b,
+        0.2126729 * r + 0.7151522 * g + 0.0721750 * b,
+        0.0193339 * r + 0.1191920 * g + 0.9503041 * b
+      ];
+    }
+
+    // XYZ → CIELAB
+    function xyzToLab(xyz) {
+      const Xn = 0.95047, Yn = 1.00000, Zn = 1.08883;
+      const f = t => t > 0.008856 ? Math.cbrt(t) : (903.3 * t + 16) / 116;
+      const fx = f(xyz[0] / Xn);
+      const fy = f(xyz[1] / Yn);
+      const fz = f(xyz[2] / Zn);
+      return [
+        116 * fy - 16,
+        500 * (fx - fy),
+        200 * (fy - fz)
+      ];
+    }
+
+    function rgbToLab(rgb) {
+      return xyzToLab(rgbToXyz(rgb));
+    }
+
+    function rgbToHsl(rgb) {
+      const r = rgb[0] / 255, g = rgb[1] / 255, b = rgb[2] / 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      let h, s, l = (max + min) / 2;
+      if (max === min) {
+        h = s = 0;
+      } else {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+          case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+          case g: h = ((b - r) / d + 2) / 6; break;
+          case b: h = ((r - g) / d + 4) / 6; break;
+        }
+      }
+      return [h * 360, s, l];
+    }
+
+    // ════════════════════════════════════════════
+    //  CIEDE2000 implementation
+    // ════════════════════════════════════════════
+
+    function ciede2000(lab1, lab2) {
+      const [L1, a1, b1] = lab1;
+      const [L2, a2, b2] = lab2;
+      const rad = Math.PI / 180, deg = 180 / Math.PI;
+
+      const C1 = Math.sqrt(a1 * a1 + b1 * b1);
+      const C2 = Math.sqrt(a2 * a2 + b2 * b2);
+      const Cab = (C1 + C2) / 2;
+      const Cab7 = Math.pow(Cab, 7);
+      const G = 0.5 * (1 - Math.sqrt(Cab7 / (Cab7 + Math.pow(25, 7))));
+      const ap1 = a1 * (1 + G), ap2 = a2 * (1 + G);
+      const Cp1 = Math.sqrt(ap1 * ap1 + b1 * b1);
+      const Cp2 = Math.sqrt(ap2 * ap2 + b2 * b2);
+
+      let hp1 = Math.atan2(b1, ap1) * deg; if (hp1 < 0) hp1 += 360;
+      let hp2 = Math.atan2(b2, ap2) * deg; if (hp2 < 0) hp2 += 360;
+
+      const dLp = L2 - L1;
+      const dCp = Cp2 - Cp1;
+      let dhp;
+      if (Cp1 * Cp2 === 0) dhp = 0;
+      else if (Math.abs(hp2 - hp1) <= 180) dhp = hp2 - hp1;
+      else if (hp2 - hp1 > 180) dhp = hp2 - hp1 - 360;
+      else dhp = hp2 - hp1 + 360;
+      const dHp = 2 * Math.sqrt(Cp1 * Cp2) * Math.sin(dhp / 2 * rad);
+
+      const Lp = (L1 + L2) / 2;
+      const Cp = (Cp1 + Cp2) / 2;
+      let hp;
+      if (Cp1 * Cp2 === 0) hp = hp1 + hp2;
+      else if (Math.abs(hp1 - hp2) <= 180) hp = (hp1 + hp2) / 2;
+      else if (hp1 + hp2 < 360) hp = (hp1 + hp2 + 360) / 2;
+      else hp = (hp1 + hp2 - 360) / 2;
+
+      const T = 1
+        - 0.17 * Math.cos((hp - 30) * rad)
+        + 0.24 * Math.cos(2 * hp * rad)
+        + 0.32 * Math.cos((3 * hp + 6) * rad)
+        - 0.20 * Math.cos((4 * hp - 63) * rad);
+
+      const Lp50 = (Lp - 50) * (Lp - 50);
+      const SL = 1 + 0.015 * Lp50 / Math.sqrt(20 + Lp50);
+      const SC = 1 + 0.045 * Cp;
+      const SH = 1 + 0.015 * Cp * T;
+
+      const Cp7 = Math.pow(Cp, 7);
+      const RT = -2 * Math.sqrt(Cp7 / (Cp7 + Math.pow(25, 7)))
+        * Math.sin(60 * Math.exp(-Math.pow((hp - 275) / 25, 2)) * rad);
+
+      return Math.sqrt(
+        (dLp / SL) ** 2 + (dCp / SC) ** 2 + (dHp / SH) ** 2
+        + RT * (dCp / SC) * (dHp / SH)
+      );
+    }
+
+    // ════════════════════════════════════════════
+    //  Multiplicative LCH helpers
+    // ════════════════════════════════════════════
+
+    function multLCH(actual, guess, Lmax, Cmax, Hmax) {
+      const lab1 = rgbToLab(actual), lab2 = rgbToLab(guess);
+      const dL = Math.abs(lab1[0] - lab2[0]);
+      const C1 = Math.sqrt(lab1[1] * lab1[1] + lab1[2] * lab1[2]);
+      const C2 = Math.sqrt(lab2[1] * lab2[1] + lab2[2] * lab2[2]);
+      const dC = Math.abs(C1 - C2);
+      const da = lab1[1] - lab2[1], db = lab1[2] - lab2[2];
+      const dH = Math.sqrt(Math.max(0, da * da + db * db - (C1 - C2) * (C1 - C2)));
+      const sL = Math.max(0, 1 - (dL / Lmax) * (dL / Lmax));
+      const sC = Math.max(0, 1 - (dC / Cmax) * (dC / Cmax));
+      const sH = Math.max(0, 1 - (dH / Hmax) * (dH / Hmax));
+      return Math.round(sL * sC * sH * 100) / 10;
+    }
+
+    // Achromatic-aware with hue ANGLE (not chord distance).
+    // Using hue angle properly separates "two similar greens" from
+    // "green vs brown" — chord-based dH conflates them because it
+    // scales by chroma. Separate achromatic penalty for color→gray.
+    function multLCHA(actual, guess, Lmax, Cmax, HmaxDeg, Amax, achromThresh, pH) {
+      const lab1 = rgbToLab(actual), lab2 = rgbToLab(guess);
+      const dL = Math.abs(lab1[0] - lab2[0]);
+      const C1 = Math.sqrt(lab1[1] * lab1[1] + lab1[2] * lab1[2]);
+      const C2 = Math.sqrt(lab2[1] * lab2[1] + lab2[2] * lab2[2]);
+      const dC = Math.abs(C1 - C2);
+      // Hue angle difference in degrees
+      const h1 = Math.atan2(lab1[2], lab1[1]) * 180 / Math.PI;
+      const h2 = Math.atan2(lab2[2], lab2[1]) * 180 / Math.PI;
+      let dHue = Math.abs(h1 - h2);
+      if (dHue > 180) dHue = 360 - dHue;
+      // Achromatic handling: when chroma < threshold, hue is undefined
+      const achrom = Math.max(
+        Math.max(0, 1 - C1 / achromThresh),
+        Math.max(0, 1 - C2 / achromThresh)
+      );
+      const achromDist = Math.max(C1, C2) * achrom;
+      const sL = Math.max(0, 1 - (dL / Lmax) * (dL / Lmax));
+      const sC = Math.max(0, 1 - (dC / Cmax) * (dC / Cmax));
+      const sH = Math.max(0, 1 - Math.pow(dHue / HmaxDeg, pH));
+      const sA = Math.max(0, 1 - (achromDist / Amax) * (achromDist / Amax));
+      return Math.round(sL * sC * sH * sA * 100) / 10;
+    }
+
+    // ════════════════════════════════════════════
+    //  Scoring algorithms
+    // ════════════════════════════════════════════
+
+    const MAX_RGB_DIST = Math.sqrt(255 * 255 * 3); // ~441.67
+
+    const algorithms = [
+      {
+        id: 'euclidean-rgb',
+        name: 'Euclidean RGB',
+        tag: 'current',
+        desc: 'Straight-line distance in RGB cube, normalized to 0–10',
+        score(actual, guess) {
+          const dr = actual[0] - guess[0];
+          const dg = actual[1] - guess[1];
+          const db = actual[2] - guess[2];
+          const dist = Math.sqrt(dr * dr + dg * dg + db * db);
+          return Math.round(10 * (1 - dist / MAX_RGB_DIST) * 10) / 10;
+        }
+      },
+      {
+        id: 'cie76',
+        name: 'CIE76 (ΔE*ab)',
+        tag: 'reference',
+        desc: 'Euclidean distance in CIELAB — perceptually more uniform than RGB',
+        score(actual, guess) {
+          const lab1 = rgbToLab(actual), lab2 = rgbToLab(guess);
+          const dL = lab1[0] - lab2[0];
+          const da = lab1[1] - lab2[1];
+          const db = lab1[2] - lab2[2];
+          const dE = Math.sqrt(dL * dL + da * da + db * db);
+          return Math.round(10 * Math.max(0, 1 - dE / 150) * 10) / 10;
+        }
+      },
+      {
+        id: 'cubic-reward',
+        name: 'Cubic Reward',
+        tag: 'favorite',
+        desc: 'Cubes the similarity in RGB — generous for close guesses, steep dropoff',
+        score(actual, guess) {
+          const dr = actual[0] - guess[0];
+          const dg = actual[1] - guess[1];
+          const db = actual[2] - guess[2];
+          const dist = Math.sqrt(dr * dr + dg * dg + db * db);
+          const sim = 1 - dist / MAX_RGB_DIST;
+          return Math.round(sim * sim * sim * 100) / 10;
+        }
+      },
+      {
+        id: 'cubic-lab',
+        name: 'Cubic Lab',
+        desc: 'Cubic curve on CIELAB ΔE — handles achromatic well but too harsh on lightness/chroma',
+        score(actual, guess) {
+          const lab1 = rgbToLab(actual), lab2 = rgbToLab(guess);
+          const dL = lab1[0] - lab2[0];
+          const da = lab1[1] - lab2[1];
+          const db = lab1[2] - lab2[2];
+          const dE = Math.sqrt(dL * dL + da * da + db * db);
+          const sim = Math.max(0, 1 - dE / 150);
+          return Math.round(sim * sim * sim * 100) / 10;
+        }
+      },
+      {
+        id: 'mult-lch-forgiving',
+        name: 'Mult LCH Forgiving',
+        desc: 'Multiplicative L/C/H — no achromatic fix, scores color→gray too high',
+        score(actual, guess) {
+          return multLCH(actual, guess, 84, 130, 45);
+        }
+      },
+      {
+        id: 'mult-lcha-tight',
+        name: 'Mult LCHA Tight',
+        desc: 'Hue-angle — L≤65 C≤80 H≤75° A≤65 p=1.5',
+        score(actual, guess) {
+          return multLCHA(actual, guess, 65, 80, 75, 65, 10, 1.5);
+        }
+      },
+      {
+        id: 'mult-lcha-tuned',
+        name: 'Mult LCHA Tuned',
+        tag: 'candidate',
+        desc: 'Hue-angle — L≤65 C≤90 H≤80° A≤65 p=1.5',
+        score(actual, guess) {
+          return multLCHA(actual, guess, 65, 90, 80, 65, 10, 1.5);
+        }
+      },
+      {
+        id: 'mult-lcha-open',
+        name: 'Mult LCHA Open',
+        desc: 'Hue-angle — L≤65 C≤100 H≤85° A≤65 p=1.5',
+        score(actual, guess) {
+          return multLCHA(actual, guess, 65, 100, 85, 65, 10, 1.5);
+        }
+      },
+      {
+        id: 'mult-lcha-strict-hue',
+        name: 'Mult LCHA Strict Hue',
+        desc: 'Tighter hue — L≤65 C≤85 H≤70° A≤65 p=1.5',
+        score(actual, guess) {
+          return multLCHA(actual, guess, 65, 85, 70, 65, 10, 1.5);
+        }
+      },
+      {
+        id: 'mult-lcha-wide',
+        name: 'Mult LCHA Wide',
+        desc: 'More generous — L≤65 C≤100 H≤90° A≤70 p=1.5',
+        score(actual, guess) {
+          return multLCHA(actual, guess, 65, 100, 90, 70, 10, 1.5);
+        }
+      },
+      {
+        id: 'mult-lcha-quad',
+        name: 'Mult LCHA Quad Hue',
+        desc: 'Quadratic hue falloff for comparison — L≤65 C≤90 H≤90° A≤65 p=2',
+        score(actual, guess) {
+          return multLCHA(actual, guess, 65, 90, 90, 65, 10, 2);
+        }
+      }
+    ];
+
+    // ════════════════════════════════════════════
+    //  Score class helpers
+    // ════════════════════════════════════════════
+
+    function scoreClass(s) {
+      if (s >= 9.5) return 'perfect';
+      if (s >= 8) return 'great';
+      if (s >= 6) return 'good';
+      if (s >= 4) return 'ok';
+      return 'poor';
+    }
+
+    // ════════════════════════════════════════════
+    //  UI wiring
+    // ════════════════════════════════════════════
+
+    const $colorActual = document.getElementById('colorActual');
+    const $hexActual   = document.getElementById('hexActual');
+    const $colorGuess  = document.getElementById('colorGuess');
+    const $hexGuess    = document.getElementById('hexGuess');
+    const $body        = document.getElementById('resultsBody');
+    const $delta       = document.getElementById('deltaPreview');
+
+    // Sync color pickers ↔ hex inputs
+    $colorActual.addEventListener('input', () => {
+      $hexActual.value = $colorActual.value.toUpperCase();
+      update();
+    });
+    $colorGuess.addEventListener('input', () => {
+      $hexGuess.value = $colorGuess.value.toUpperCase();
+      update();
+    });
+    $hexActual.addEventListener('input', () => {
+      const v = $hexActual.value.startsWith('#') ? $hexActual.value : '#' + $hexActual.value;
+      if (/^#[0-9A-Fa-f]{6}$/.test(v)) { $colorActual.value = v; update(); }
+    });
+    $hexGuess.addEventListener('input', () => {
+      const v = $hexGuess.value.startsWith('#') ? $hexGuess.value : '#' + $hexGuess.value;
+      if (/^#[0-9A-Fa-f]{6}$/.test(v)) { $colorGuess.value = v; update(); }
+    });
+
+    // Presets
+    const presets = [
+      { label: 'Near miss',           actual: '#E63946', guess: '#D93545' },
+      { label: 'Off hue',             actual: '#2196F3', guess: '#4CAF50' },
+      { label: 'Light vs dark',       actual: '#F5F5F5', guess: '#212121' },
+      { label: 'Same hue, diff sat',  actual: '#E91E63', guess: '#F8BBD0' },
+      { label: 'Complementary',       actual: '#FF5722', guess: '#00BCD4' },
+      { label: 'Identical',           actual: '#6C63FF', guess: '#6C63FF' },
+      { label: 'Channel swap',        actual: '#FF0000', guess: '#00FF00' },
+      { label: 'Color → Gray',        actual: '#7DCA75', guess: '#C2C2C2' },
+      { label: 'Two greens',          actual: '#27D270', guess: '#579C0F' },
+      { label: 'Muted vs vivid grn',  actual: '#7DCA75', guess: '#00AD1D' },
+      { label: 'Subtle warm shift',   actual: '#8D6E63', guess: '#7E5749' },
+      { label: 'Cyan vs forest grn', actual: '#2EEFC7', guess: '#006110' },
+    ];
+
+    const $presets = document.getElementById('presets');
+    presets.forEach(p => {
+      const btn = document.createElement('button');
+      btn.className = 'preset-btn';
+      btn.innerHTML = `<span class="preset-dot" style="background:${p.actual}"></span>`
+        + `<span class="preset-dot" style="background:${p.guess}"></span> ${p.label}`;
+      btn.addEventListener('click', () => {
+        $colorActual.value = p.actual; $hexActual.value = p.actual;
+        $colorGuess.value  = p.guess;  $hexGuess.value  = p.guess;
+        update();
+      });
+      $presets.appendChild(btn);
+    });
+
+    // Randomize
+    document.getElementById('randomizeBtn').addEventListener('click', () => {
+      const rnd = () => '#' + Array.from({length: 6}, () => '0123456789ABCDEF'[Math.random()*16|0]).join('');
+      const a = rnd(), g = rnd();
+      $colorActual.value = a; $hexActual.value = a;
+      $colorGuess.value  = g; $hexGuess.value  = g;
+      update();
+    });
+
+    // ════════════════════════════════════════════
+    //  Render
+    // ════════════════════════════════════════════
+
+    function update() {
+      const actual = hexToRgb($colorActual.value);
+      const guess  = hexToRgb($colorGuess.value);
+
+      // Delta preview
+      const rgbDiff = [
+        Math.abs(actual[0] - guess[0]),
+        Math.abs(actual[1] - guess[1]),
+        Math.abs(actual[2] - guess[2])
+      ];
+      $delta.innerHTML = `
+        <span class="delta-swatch" style="background:${$colorActual.value}"></span>
+        <span class="delta-arrow">→</span>
+        <span class="delta-swatch" style="background:${$colorGuess.value}"></span>
+        <span class="delta-info">ΔR ${rgbDiff[0]}  ΔG ${rgbDiff[1]}  ΔB ${rgbDiff[2]}</span>
+      `;
+
+      // Score table
+      $body.innerHTML = algorithms.map(algo => {
+        const s = algo.score(actual, guess);
+        const cls = scoreClass(s);
+        const tag = algo.tag
+          ? `<span class="algo-tag tag-${algo.tag}">${algo.tag}</span>` : '';
+        return `<tr>
+          <td>
+            <div class="algo-name">${algo.name}${tag}</div>
+            <div class="algo-desc">${algo.desc}</div>
+          </td>
+          <td class="score-cell score-${cls}">${s.toFixed(1)}</td>
+          <td class="bar-cell">
+            <div class="bar-track">
+              <div class="bar-fill bar-${cls}" style="width:${s * 10}%"></div>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    // Initial render
+    update();
+  </script>
+</body>
+</html>
