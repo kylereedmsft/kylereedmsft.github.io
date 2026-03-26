@@ -82,6 +82,24 @@
       color: #64748b;
     }
 
+    .randomize-btn {
+      background: none;
+      border: 1px solid #334155;
+      border-radius: 0.5rem;
+      padding: 0.2rem 0.45rem;
+      font-size: 1.1rem;
+      cursor: pointer;
+      color: #64748b;
+      transition: color 0.2s, border-color 0.2s, transform 0.2s;
+      line-height: 1;
+      position: relative;
+    }
+    .randomize-btn:hover {
+      color: #e2e8f0;
+      border-color: #64748b;
+      transform: rotate(90deg);
+    }
+
     .instructions {
       text-align: center;
       color: #64748b;
@@ -426,6 +444,7 @@
       <p class="subtitle">How well do you know your colors?</p>
       <div class="game-info">
         <span class="game-key">Game <span id="game-key"></span></span>
+        <button class="randomize-btn" id="randomize-btn" title="New random game">🎲</button>
       </div>
     </header>
 
@@ -819,6 +838,7 @@
     document.getElementById('share-btn').addEventListener('click', shareResults);
     document.getElementById('retry-btn').addEventListener('click', retryGame);
     document.getElementById('new-btn').addEventListener('click', newGame);
+    document.getElementById('randomize-btn').addEventListener('click', newGame);
   </script>
 </body>
 </html>
