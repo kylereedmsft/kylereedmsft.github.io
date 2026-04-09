@@ -328,7 +328,7 @@ test.describe('Performance View', () => {
     await expect(page.locator('#perf-warning')).toContainText('DONE', { timeout: 5000 });
 
     await page.click('#perf-restart-btn');
-    await expect(page.locator('#perf-warning')).toBeHidden();
+    await expect(page.locator('#perf-warning')).toHaveClass(/hidden/);
     await expect(page.locator('#perf-bar-number')).toHaveText('\u00A0');
   });
 
