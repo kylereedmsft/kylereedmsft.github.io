@@ -919,22 +919,24 @@
       subTick = subIndex;
     }
 
-    // Fermata hold progress bar
-    if (beat.isFermata) {
+    // Fermata hold progress bar — use holdSeconds directly for accuracy
+    if (beat.isFermata && beat.holdSeconds > 0) {
       const w = $('#perf-warning');
-      const pctFill = Math.min(100, beatProgress * 100);
+      const holdProgress = Math.min(1, (elapsed - beat.time) / beat.holdSeconds);
+      const pctFill = holdProgress * 100;
       w.style.background = `linear-gradient(to right, #9c27b0 ${pctFill}%, #3a1050 ${pctFill}%)`;
     }
 
-    // Progress — update scrubber position during playback
+    // Progress — update scrubber position and label during playback
     const lastBeat = map[map.length - 1];
     const lastBeatDur = lastBeat.isFermata ? lastBeat.holdSeconds : 60 / lastBeat.tempo;
     const totalTime = lastBeat.time + lastBeatDur;
     const scrub = $('#perf-scrub');
     if (scrub && scrub.disabled) {
       const maxBar = parseInt(scrub.max) || 1;
-      const pct = elapsed / totalTime;
-      scrub.value = Math.max(1, Math.min(maxBar, Math.round(1 + pct * (maxBar - 1))));
+      const currentBar = beat.bar > 0 ? beat.bar : 1;
+      scrub.value = Math.min(maxBar, currentBar);
+      updateScrubLabel(currentBar, maxBar);
     }
 
     // "Next" info — auto warnings
