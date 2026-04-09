@@ -926,11 +926,16 @@
       w.style.background = `linear-gradient(to right, #9c27b0 ${pctFill}%, #3a1050 ${pctFill}%)`;
     }
 
-    // Progress bar
-    const totalTime = map[map.length - 1].time + 60 / map[map.length - 1].tempo;
-    const pct = (elapsed / totalTime) * 100;
-    const progFill = $('#perf-progress-fill');
-    if (progFill) progFill.style.width = `${Math.min(100, pct)}%`;
+    // Progress — update scrubber position during playback
+    const lastBeat = map[map.length - 1];
+    const lastBeatDur = lastBeat.isFermata ? lastBeat.holdSeconds : 60 / lastBeat.tempo;
+    const totalTime = lastBeat.time + lastBeatDur;
+    const scrub = $('#perf-scrub');
+    if (scrub && scrub.disabled) {
+      const maxBar = parseInt(scrub.max) || 1;
+      const pct = elapsed / totalTime;
+      scrub.value = Math.max(1, Math.min(maxBar, Math.round(1 + pct * (maxBar - 1))));
+    }
 
     // "Next" info — auto warnings
     updateNextInfo(beat, map, bi);
