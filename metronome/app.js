@@ -146,7 +146,8 @@
         beat, beatsPerBar: bpb0, tempo: startTempo,
         sectionIndex: -1, sectionName: 'Count-in', sectionLetter: '',
         isCountIn: true, isDownbeat: beat === 1,
-        subdivision: 0, warningColor: null, warningLabel: null
+        subdivision: 0, warningColor: null, warningLabel: null,
+        isFermata: false, holdSeconds: 0
       });
       time += 60 / startTempo;
     }
@@ -164,9 +165,20 @@
         if (globalBar < startBar) { skipped++; continue; }
 
         const warnInfo = resolveWarningAtLocalBar(sec, localBar);
+        // Check for fermata in this bar
+        const fermata = sec.events.find(e => e.type === 'fermata' && e.startBar === localBar);
 
         for (let b = 1; b <= bpb; b++) {
+          // Skip beats consumed by a fermata on an earlier beat
+          if (fermata && b > fermata.fermataBeat && b <= bpb) {
+            // This beat is "consumed" — the fermata hold covers it
+            continue;
+          }
+
           const tempo = resolveTempoAtBeat(sec, localBar, b, bpb);
+          const isFermataBeat = fermata && b === fermata.fermataBeat;
+          const holdSeconds = isFermataBeat ? (fermata.holdSeconds || 3) : 0;
+
           map.push({
             time, bar: globalBar, beat: b, beatsPerBar: bpb, tempo,
             sectionIndex: si, sectionName: sec.name || LETTERS[si],
@@ -175,9 +187,10 @@
             subdivision: sec.subdivision || 0,
             warningColor: warnInfo?.color || null,
             warningLabel: warnInfo?.label || null,
-            keySignature: sec.keySignature || ''
+            keySignature: sec.keySignature || '',
+            isFermata: isFermataBeat, holdSeconds
           });
-          time += 60 / tempo;
+          time += isFermataBeat ? holdSeconds : 60 / tempo;
         }
       }
     }
@@ -464,7 +477,8 @@
         el('button', { className: 'btn-add-event', 'data-action': 'add-rit' }, '+ Rit'),
         el('button', { className: 'btn-add-event', 'data-action': 'add-accel' }, '+ Accel'),
         el('button', { className: 'btn-add-event', 'data-action': 'add-warning' }, '+ Warning'),
-        el('button', { className: 'btn-add-event', 'data-action': 'add-tempo_change' }, '+ Tempo Δ')
+        el('button', { className: 'btn-add-event', 'data-action': 'add-tempo_change' }, '+ Tempo Δ'),
+        el('button', { className: 'btn-add-event', 'data-action': 'add-fermata' }, '+ Fermata')
       )
     );
     evtSection.appendChild(evtHeader);
@@ -484,7 +498,7 @@
 
   function renderEventRow(evt, ei, sec) {
     const row = el('div', { className: `event-row evt-${evt.type}`, 'data-event': ei.toString() });
-    const typeLabels = { rit: 'Rit', accel: 'Accel', warning: 'Warning', tempo_change: 'Tempo Δ' };
+    const typeLabels = { rit: 'Rit', accel: 'Accel', warning: 'Warning', tempo_change: 'Tempo Δ', fermata: '𝄐 Fermata' };
     row.appendChild(el('span', { className: 'evt-type' }, typeLabels[evt.type] || evt.type));
 
     if (evt.type === 'rit' || evt.type === 'accel') {
@@ -507,6 +521,12 @@
       row.innerHTML += `
         <div class="field-inline">at bar <input type="number" data-efield="startBar" min="1" max="${sec.bars}" value="${evt.startBar}"></div>
         <div class="field-inline">→ <input type="number" data-efield="targetTempo" min="10" max="400" value="${evt.targetTempo}"> bpm</div>
+      `;
+    } else if (evt.type === 'fermata') {
+      row.innerHTML += `
+        <div class="field-inline">bar <input type="number" data-efield="startBar" min="1" max="${sec.bars}" value="${evt.startBar}"></div>
+        <div class="field-inline">beat <input type="number" data-efield="fermataBeat" min="1" max="${sec.timeSignatureNum}" value="${evt.fermataBeat || 1}"></div>
+        <div class="field-inline">hold <input type="number" data-efield="holdSeconds" min="1" max="30" step="0.5" value="${evt.holdSeconds || 3}">s</div>
       `;
     }
 
@@ -542,6 +562,8 @@
         if (ef('[data-efield="startBar"]')) evt.startBar = parseInt(ef('[data-efield="startBar"]').value) || 1;
         if (ef('[data-efield="endBar"]')) evt.endBar = parseInt(ef('[data-efield="endBar"]').value) || evt.startBar;
         if (ef('[data-efield="targetTempo"]')) evt.targetTempo = parseFloat(ef('[data-efield="targetTempo"]').value) || 120;
+        if (ef('[data-efield="fermataBeat"]')) evt.fermataBeat = parseInt(ef('[data-efield="fermataBeat"]').value) || 1;
+        if (ef('[data-efield="holdSeconds"]')) evt.holdSeconds = parseFloat(ef('[data-efield="holdSeconds"]').value) || 3;
         if (ef('[data-efield="label"]')) evt.label = ef('[data-efield="label"]').value;
         if (ef('[data-efield="color"]')) {
           evt.color = ef('[data-efield="color"]').value;
@@ -604,6 +626,10 @@
       }
       case 'add-tempo_change': {
         song.sections[si].events.push({ type: 'tempo_change', startBar: 1, endBar: null, targetTempo: song.sections[si].tempo, color: null, label: null });
+        break;
+      }
+      case 'add-fermata': {
+        song.sections[si].events.push({ type: 'fermata', startBar: song.sections[si].bars, fermataBeat: song.sections[si].timeSignatureNum, holdSeconds: 3, color: null, label: null });
         break;
       }
       case 'del-event': {
@@ -882,7 +908,7 @@
     }
 
     // Update subdivision fill
-    if (beat.subdivision > 0) {
+    if (beat.subdivision > 0 && !beat.isFermata) {
       const subIndex = Math.floor(beatProgress * beat.subdivision);
       updateSubdivisionFill(beat.beat, subIndex, beat.subdivision, beat.isDownbeat, beat.isCountIn);
 
@@ -891,6 +917,13 @@
         playClick(600, 0.04);
       }
       subTick = subIndex;
+    }
+
+    // Fermata hold progress bar
+    if (beat.isFermata) {
+      const w = $('#perf-warning');
+      const pctFill = Math.min(100, beatProgress * 100);
+      w.style.background = `linear-gradient(to right, #9c27b0 ${pctFill}%, #3a1050 ${pctFill}%)`;
     }
 
     // Progress bar
@@ -979,8 +1012,13 @@
     const den = sec ? sec.timeSignatureDen : 4;
     $('#perf-time-sig').textContent = `${bpb}/${den}`;
 
-    // Warning
-    if (beat.warningColor) {
+    // Warning / Fermata
+    if (beat.isFermata) {
+      const w = $('#perf-warning');
+      w.classList.remove('hidden');
+      w.innerHTML = '<span class="warning-label">HOLD</span>';
+      w.style.background = 'linear-gradient(to right, #9c27b0 0%, #3a1050 0%)';
+    } else if (beat.warningColor) {
       showWarning(beat.warningColor, beat.warningLabel);
     } else {
       hideWarning();
