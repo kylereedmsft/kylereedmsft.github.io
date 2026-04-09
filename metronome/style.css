@@ -505,9 +505,28 @@ label {
   .song-card, .section-card, .btn-add-section { max-width: 800px; margin-left: auto; margin-right: auto; }
 }
 @media (orientation: landscape) and (max-height: 500px) {
-  .bar-number { font-size: 80px; }
-  .section-letter { font-size: 40px; }
-  .beat-dot { font-size: 36px !important; border-radius: 12px !important; }
-  .perf-row-beats { gap: 8px; }
-  .perf-main { gap: 6px; padding: 4px 12px; }
+  /* Percentage-based layout so everything fits predictably */
+  .perf-controls { padding: 2px 12px; padding-top: calc(2px + var(--safe-top)); }
+  .perf-ctrl-btn { width: 32px; height: 32px; font-size: 14px; }
+
+  .perf-main { padding: 2px 12px; }
+  .perf-row-top { height: 25%; }
+  .section-letter { font-size: clamp(24px, 8vh, 48px); }
+  .section-label { display: none; }
+  .bar-number { font-size: clamp(40px, 16vh, 72px); }
+  .perf-row-beats { flex: 1; min-height: 0; padding: 2px 4px; }
+  .beat-col { gap: 4px; }
+  .beat-dot { font-size: clamp(20px, 8vh, 44px) !important; flex: 0 1 80%; }
+  .sub-dots { height: 18px; gap: 4px; }
+  .sub-dot { width: 12px; height: 12px; }
+  .perf-row-warning { height: 15%; }
+  .perf-row-warning .warning-label { font-size: clamp(18px, 6vh, 36px); }
+
+  .perf-footer { padding: 2px 20px; padding-bottom: calc(2px + var(--safe-bottom)); }
+  .perf-scrubber { margin-bottom: 2px; }
+  .perf-transport { gap: 10px; margin-bottom: 0; }
+  .transport-btn { width: 36px; height: 36px; font-size: 14px; }
+  .transport-btn.play-btn { width: 44px; height: 44px; font-size: 18px; }
+  .perf-next { min-height: 14px; font-size: 13px; }
+  .perf-next.imminent { font-size: 15px; }
 }

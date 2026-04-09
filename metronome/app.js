@@ -170,7 +170,7 @@
 
         for (let b = 1; b <= bpb; b++) {
           // Skip beats consumed by a fermata on an earlier beat
-          if (fermata && b > fermata.fermataBeat && b <= bpb) {
+          if (fermata && b > fermata.fermataBeat && b < fermata.fermataBeat + (fermata.beatsConsumed || bpb)) {
             // This beat is "consumed" — the fermata hold covers it
             continue;
           }
@@ -526,6 +526,7 @@
       row.innerHTML += `
         <div class="field-inline">bar <input type="number" data-efield="startBar" min="1" max="${sec.bars}" value="${evt.startBar}"></div>
         <div class="field-inline">beat <input type="number" data-efield="fermataBeat" min="1" max="${sec.timeSignatureNum}" value="${evt.fermataBeat || 1}"></div>
+        <div class="field-inline">holds <input type="number" data-efield="beatsConsumed" min="1" max="${sec.timeSignatureNum}" value="${evt.beatsConsumed || sec.timeSignatureNum}"> beats</div>
         <div class="field-inline">hold <input type="number" data-efield="holdSeconds" min="1" max="30" step="0.5" value="${evt.holdSeconds || 3}">s</div>
       `;
     }
@@ -563,6 +564,7 @@
         if (ef('[data-efield="endBar"]')) evt.endBar = parseInt(ef('[data-efield="endBar"]').value) || evt.startBar;
         if (ef('[data-efield="targetTempo"]')) evt.targetTempo = parseFloat(ef('[data-efield="targetTempo"]').value) || 120;
         if (ef('[data-efield="fermataBeat"]')) evt.fermataBeat = parseInt(ef('[data-efield="fermataBeat"]').value) || 1;
+        if (ef('[data-efield="beatsConsumed"]')) evt.beatsConsumed = parseInt(ef('[data-efield="beatsConsumed"]').value) || 1;
         if (ef('[data-efield="holdSeconds"]')) evt.holdSeconds = parseFloat(ef('[data-efield="holdSeconds"]').value) || 3;
         if (ef('[data-efield="label"]')) evt.label = ef('[data-efield="label"]').value;
         if (ef('[data-efield="color"]')) {
@@ -629,7 +631,7 @@
         break;
       }
       case 'add-fermata': {
-        song.sections[si].events.push({ type: 'fermata', startBar: song.sections[si].bars, fermataBeat: song.sections[si].timeSignatureNum, holdSeconds: 3, color: null, label: null });
+        song.sections[si].events.push({ type: 'fermata', startBar: song.sections[si].bars, fermataBeat: song.sections[si].timeSignatureNum, beatsConsumed: 1, holdSeconds: 3, color: null, label: null });
         break;
       }
       case 'del-event': {
