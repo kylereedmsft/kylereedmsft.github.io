@@ -163,10 +163,10 @@
         globalBar++;
         if (globalBar < startBar) { skipped++; continue; }
 
-        const tempo = resolveTempoAtLocalBar(sec, localBar);
         const warnInfo = resolveWarningAtLocalBar(sec, localBar);
 
         for (let b = 1; b <= bpb; b++) {
+          const tempo = resolveTempoAtBeat(sec, localBar, b, bpb);
           map.push({
             time, bar: globalBar, beat: b, beatsPerBar: bpb, tempo,
             sectionIndex: si, sectionName: sec.name || LETTERS[si],
@@ -187,37 +187,38 @@
   function tempoAtBar(song, globalBar) {
     let bar = 0;
     for (const sec of song.sections) {
+      const bpb = sec.timeSignatureNum;
       for (let lb = 1; lb <= sec.bars; lb++) {
         bar++;
-        if (bar === globalBar) return resolveTempoAtLocalBar(sec, lb);
+        if (bar === globalBar) return resolveTempoAtBeat(sec, lb, 1, bpb);
       }
     }
     return song.sections[0]?.tempo || 120;
   }
 
-  function resolveTempoAtLocalBar(sec, localBar) {
+  function resolveTempoAtBeat(sec, localBar, beat, bpb) {
     let tempo = sec.tempo;
-    // Process events in order; later events override earlier
     for (const evt of sec.events) {
       if (evt.type === 'tempo_change' && localBar >= evt.startBar) {
         tempo = evt.targetTempo;
       }
       if ((evt.type === 'rit' || evt.type === 'accel') && localBar >= evt.startBar && localBar <= evt.endBar) {
-        // Get the effective tempo at the start of this ramp
         let entryTempo = sec.tempo;
-        // Check if any earlier events modified the tempo before this ramp
         for (const e2 of sec.events) {
           if (e2 === evt) break;
           if (e2.type === 'tempo_change' && e2.startBar <= evt.startBar) entryTempo = e2.targetTempo;
           if ((e2.type === 'rit' || e2.type === 'accel') && evt.startBar >= e2.startBar && evt.startBar <= e2.endBar) {
-            // Nested ramp — take target of earlier ramp at this point
             const t = (evt.startBar - e2.startBar) / Math.max(1, e2.endBar - e2.startBar);
-            const eEntry = sec.tempo; // simplified
+            const eEntry = sec.tempo;
             entryTempo = eEntry + t * (e2.targetTempo - eEntry);
           }
         }
-        const span = Math.max(1, evt.endBar - evt.startBar);
-        const progress = (localBar - evt.startBar) / span;
+        // Interpolate per-beat across the full ramp range
+        const totalBars = evt.endBar - evt.startBar + 1;
+        const totalBeats = totalBars * bpb;
+        const barsInto = localBar - evt.startBar;
+        const beatsInto = barsInto * bpb + (beat - 1);
+        const progress = totalBeats > 1 ? beatsInto / (totalBeats - 1) : 1;
         tempo = entryTempo + progress * (evt.targetTempo - entryTempo);
       }
     }
