@@ -1,0 +1,853 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Clipboard Doctor</title>
+  <style>
+    :root { color-scheme: dark; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #0f172a; color: #e2e8f0;
+      min-height: 100vh; padding: 1rem;
+      -webkit-text-size-adjust: 100%;
+    }
+    h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 0.15rem; }
+    .subtitle { color: #94a3b8; font-size: 0.85rem; margin-bottom: 1rem; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    code { font-family: inherit; }
+    button {
+      padding: 0.5rem 1rem; border-radius: 0.5rem; border: 1px solid #334155;
+      background: #1e293b; color: #e2e8f0; cursor: pointer; font-size: 0.85rem;
+      touch-action: manipulation;
+    }
+    button:hover { border-color: #60a5fa; }
+    button:active { background: #334155; }
+
+    /* Sections */
+    .section {
+      background: #1e293b; border: 1px solid #334155; border-radius: 0.75rem;
+      margin-bottom: 0.75rem; overflow: hidden;
+    }
+    .section-header {
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0.75rem 1rem; cursor: pointer; user-select: none;
+      font-weight: 600; font-size: 0.95rem;
+    }
+    .section-header:hover { background: #253247; }
+    .section-header .arrow { transition: transform 0.2s; font-size: 0.7rem; }
+    .section.collapsed .arrow { transform: rotate(-90deg); }
+    .section.collapsed .section-body { display: none; }
+    .section-body { padding: 0 1rem 1rem; }
+
+    /* Tables */
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    th, td { padding: 0.35rem 0.5rem; border-bottom: 1px solid #334155; text-align: left; vertical-align: top; }
+    th { color: #94a3b8; font-weight: 500; white-space: nowrap; }
+    td { word-break: break-all; }
+    .yes { color: #4ade80; } .no { color: #f87171; } .warn { color: #fbbf24; }
+
+    /* Paste targets */
+    .paste-targets { display: grid; gap: 0.75rem; margin-bottom: 0.75rem; }
+    .paste-target-wrap { position: relative; }
+    .paste-target-wrap label {
+      display: block; font-size: 0.75rem; color: #94a3b8;
+      margin-bottom: 0.25rem; font-weight: 600;
+    }
+    .paste-area {
+      width: 100%; min-height: 100px; padding: 1rem; border-radius: 0.5rem;
+      border: 2px dashed #475569; background: #0f172a; color: #e2e8f0;
+      font-family: inherit; font-size: 0.9rem; resize: vertical;
+      transition: border-color 0.2s;
+    }
+    .paste-area:focus { border-color: #60a5fa; outline: none; }
+    .paste-area[contenteditable] {
+      overflow-y: auto; max-height: 300px; cursor: text;
+    }
+    .paste-area[contenteditable]:empty::before {
+      content: attr(data-placeholder); color: #64748b;
+    }
+
+    /* Controls bar */
+    .controls-bar {
+      display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;
+      margin-bottom: 0.75rem;
+    }
+    .controls-bar label { font-size: 0.8rem; display: flex; align-items: center; gap: 0.3rem; cursor: pointer; }
+
+    /* Results */
+    .result-card {
+      background: #0f172a; border: 1px solid #334155; border-radius: 0.5rem;
+      padding: 0.75rem; margin-bottom: 0.5rem; font-size: 0.8rem;
+      position: relative;
+    }
+    .result-card .result-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.25rem;
+    }
+    .result-card .result-title { font-weight: 700; color: #60a5fa; }
+    .result-card .result-time { color: #64748b; font-size: 0.7rem; }
+    .result-card .dismiss {
+      position: absolute; top: 0.4rem; right: 0.5rem;
+      background: none; border: none; color: #64748b; cursor: pointer;
+      font-size: 1rem; padding: 0.2rem; line-height: 1;
+    }
+    .result-sub { margin-top: 0.5rem; }
+    .result-sub h4 { font-size: 0.75rem; color: #94a3b8; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .kv { display: grid; grid-template-columns: auto 1fr; gap: 0.15rem 0.75rem; font-size: 0.78rem; }
+    .kv .k { color: #94a3b8; white-space: nowrap; }
+    .kv .v { word-break: break-all; }
+    .blob-preview { max-width: 200px; max-height: 200px; border-radius: 0.25rem; margin-top: 0.25rem; border: 1px solid #334155; }
+    .text-preview {
+      background: #1e293b; padding: 0.4rem; border-radius: 0.25rem;
+      white-space: pre-wrap; word-break: break-all; max-height: 150px;
+      overflow-y: auto; font-size: 0.75rem; margin-top: 0.15rem;
+    }
+    .tag {
+      display: inline-block; padding: 0.1rem 0.4rem; border-radius: 0.25rem;
+      font-size: 0.7rem; font-weight: 600; margin-right: 0.25rem;
+    }
+    .tag-paste { background: #1e3a5f; color: #60a5fa; }
+    .tag-drop { background: #1e3b1e; color: #4ade80; }
+    .tag-input { background: #3b2e1e; color: #fbbf24; }
+    .tag-textarea { background: #2e1e3b; color: #c084fc; }
+    .tag-editable { background: #1e3b3b; color: #22d3ee; }
+    .diag-warn { color: #fbbf24; font-size: 0.75rem; margin-top: 0.25rem; }
+    .diag-err { color: #f87171; font-size: 0.75rem; margin-top: 0.25rem; }
+    .diag-info { color: #94a3b8; font-size: 0.75rem; margin-top: 0.25rem; }
+
+    /* Event log */
+    #eventLog {
+      max-height: 300px; overflow-y: auto; font-size: 0.72rem;
+      background: #0f172a; border-radius: 0.25rem; padding: 0.5rem;
+    }
+    .log-entry { padding: 0.15rem 0; border-bottom: 1px solid #1e293b; }
+    .log-ts { color: #64748b; margin-right: 0.5rem; }
+    .log-type { font-weight: 600; margin-right: 0.5rem; }
+
+    /* Drop zone */
+    .drop-zone {
+      min-height: 80px; border: 2px dashed #475569; border-radius: 0.5rem;
+      display: flex; align-items: center; justify-content: center;
+      color: #64748b; font-size: 0.85rem; transition: all 0.2s;
+      padding: 1rem;
+    }
+    .drop-zone.dragover { border-color: #4ade80; background: rgba(74,222,128,0.05); color: #4ade80; }
+
+    /* Async clipboard */
+    .async-section .btn-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem; }
+
+    /* Instructions */
+    .instructions {
+      background: #1a2332; border-left: 3px solid #60a5fa;
+      padding: 0.5rem 0.75rem; border-radius: 0 0.25rem 0.25rem 0;
+      font-size: 0.78rem; color: #94a3b8; margin-bottom: 0.75rem;
+    }
+    .instructions strong { color: #e2e8f0; }
+    .instructions ul { margin: 0.25rem 0 0 1.2rem; }
+    .instructions li { margin-bottom: 0.15rem; }
+  </style>
+</head>
+<body>
+
+<h1>📋 Clipboard Doctor</h1>
+<p class="subtitle">Diagnose clipboard &amp; paste issues on mobile browsers</p>
+
+<!-- Environment -->
+<div class="section" id="envSection">
+  <div class="section-header" onclick="toggleSection(this)">
+    <span class="arrow">▼</span> Environment
+  </div>
+  <div class="section-body">
+    <table><tbody id="envTable"></tbody></table>
+  </div>
+</div>
+
+<!-- API Support -->
+<div class="section" id="apiSection">
+  <div class="section-header" onclick="toggleSection(this)">
+    <span class="arrow">▼</span> API Support
+  </div>
+  <div class="section-body">
+    <table><tbody id="apiTable"></tbody></table>
+  </div>
+</div>
+
+<!-- Permissions -->
+<div class="section" id="permSection">
+  <div class="section-header" onclick="toggleSection(this)">
+    <span class="arrow">▼</span> Permissions
+  </div>
+  <div class="section-body">
+    <table><tbody id="permTable"></tbody></table>
+    <button onclick="queryPermissions()" style="margin-top:0.5rem">Re-check Permissions</button>
+    <p class="diag-info" style="margin-top:0.25rem">Note: Permission API support varies by browser. Results are advisory.</p>
+  </div>
+</div>
+
+<!-- Test Instructions -->
+<div class="instructions">
+  <strong>How to test:</strong> Paste into the targets below. Try different sources:
+  <ul>
+    <li>Screenshot from OS clipboard</li>
+    <li>Image copied from a browser tab</li>
+    <li>Photo copied from gallery / photos app</li>
+    <li>Text copied from another app</li>
+    <li>Long-press context menu vs keyboard paste</li>
+  </ul>
+</div>
+
+<!-- Controls -->
+<div class="controls-bar">
+  <label><input type="checkbox" id="chkPreventDefault" checked /> Intercept paste (preventDefault)</label>
+  <label><input type="checkbox" id="chkLogInputEvents" checked /> Log beforeinput / input</label>
+  <button onclick="clearResults()">Clear Results</button>
+</div>
+
+<!-- Paste Targets -->
+<div class="paste-targets">
+  <div class="paste-target-wrap">
+    <label>TEXTAREA</label>
+    <textarea class="paste-area" id="pasteTextarea" placeholder="Paste here (textarea)"></textarea>
+  </div>
+  <div class="paste-target-wrap">
+    <label>CONTENTEDITABLE DIV</label>
+    <div class="paste-area" contenteditable="true" id="pasteEditable" data-placeholder="Paste here (contenteditable)"></div>
+  </div>
+</div>
+
+<!-- Paste Results -->
+<div id="pasteResults"></div>
+
+<!-- Async Clipboard API -->
+<div class="section" id="asyncSection">
+  <div class="section-header" onclick="toggleSection(this)">
+    <span class="arrow">▼</span> Async Clipboard API (navigator.clipboard)
+  </div>
+  <div class="section-body async-section">
+    <p class="diag-info" style="margin-bottom:0.5rem">These buttons call the async Clipboard API directly. Must be triggered by a user gesture in a secure context.</p>
+    <div class="btn-row">
+      <button onclick="readClipboardItems()">clipboard.read()</button>
+      <button onclick="readClipboardText()">clipboard.readText()</button>
+    </div>
+    <div id="asyncResults"></div>
+  </div>
+</div>
+
+<!-- Drop Zone -->
+<div class="section" id="dropSection">
+  <div class="section-header" onclick="toggleSection(this)">
+    <span class="arrow">▼</span> Drag &amp; Drop Zone
+  </div>
+  <div class="section-body">
+    <p class="diag-info" style="margin-bottom:0.5rem">Drag files or images here for DataTransfer comparison.</p>
+    <div class="drop-zone" id="dropZone">Drop items here</div>
+    <div id="dropResults" style="margin-top:0.5rem"></div>
+  </div>
+</div>
+
+<!-- Event Log -->
+<div class="section" id="logSection">
+  <div class="section-header" onclick="toggleSection(this)">
+    <span class="arrow">▼</span> Event Log
+  </div>
+  <div class="section-body">
+    <button onclick="clearLog()" style="margin-bottom:0.5rem">Clear Log</button>
+    <div id="eventLog" class="mono"></div>
+  </div>
+</div>
+
+<script>
+// ── Helpers ──
+const $ = id => document.getElementById(id);
+const esc = s => {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+};
+const ts = () => {
+  const d = new Date();
+  return d.toLocaleTimeString('en-US', {hour12:false}) + '.' + String(d.getMilliseconds()).padStart(3,'0');
+};
+const yn = (v, label) => `<span class="${v ? 'yes' : 'no'}">${v ? '✓' : '✗'} ${label || (v ? 'Yes' : 'No')}</span>`;
+const row = (key, val) => `<tr><th>${esc(key)}</th><td>${val}</td></tr>`;
+
+function toggleSection(hdr) {
+  hdr.closest('.section').classList.toggle('collapsed');
+}
+
+// ── Environment ──
+function populateEnv() {
+  const ua = navigator.userAgent;
+  const rows = [
+    row('User Agent', `<span class="mono" style="font-size:0.72rem">${esc(ua)}</span>`),
+    row('Platform', esc(navigator.platform || 'N/A')),
+    row('Vendor', esc(navigator.vendor || 'N/A')),
+    row('Language', esc(navigator.language)),
+    row('Touch Support', yn(('ontouchstart' in window) || navigator.maxTouchPoints > 0, `maxTouchPoints=${navigator.maxTouchPoints}`)),
+    row('Secure Context', yn(window.isSecureContext)),
+    row('Protocol', esc(location.protocol)),
+    row('Top-level Frame', yn(window.top === window)),
+    row('Document Focus', yn(document.hasFocus())),
+    row('Visibility', esc(document.visibilityState)),
+    row('Screen', `${screen.width}×${screen.height} @ ${devicePixelRatio}x`),
+  ];
+  $('envTable').innerHTML = rows.join('');
+}
+
+// ── API Support ──
+function populateApi() {
+  const cb = navigator.clipboard;
+  const checks = [
+    ['navigator.clipboard', !!cb],
+    ['clipboard.read()', !!(cb && cb.read)],
+    ['clipboard.readText()', !!(cb && cb.readText)],
+    ['clipboard.write()', !!(cb && cb.write)],
+    ['clipboard.writeText()', !!(cb && cb.writeText)],
+    ['ClipboardItem', typeof ClipboardItem !== 'undefined'],
+    ['ClipboardEvent', typeof ClipboardEvent !== 'undefined'],
+    ['DataTransfer', typeof DataTransfer !== 'undefined'],
+    ['DataTransferItem', typeof DataTransferItem !== 'undefined'],
+    ['DataTransferItemList', typeof DataTransferItemList !== 'undefined'],
+    ['document.execCommand (legacy)', (() => { try { return typeof document.execCommand === 'function'; } catch { return false; } })()],
+    ['Permissions API', !!(navigator.permissions && navigator.permissions.query)],
+    ['InputEvent', typeof InputEvent !== 'undefined'],
+    ['InputEvent.dataTransfer', typeof InputEvent !== 'undefined' && 'dataTransfer' in InputEvent.prototype],
+  ];
+  $('apiTable').innerHTML = checks.map(([k,v]) => row(k, yn(v))).join('');
+}
+
+// ── Permissions ──
+async function queryPermissions() {
+  const names = ['clipboard-read', 'clipboard-write'];
+  const rows = [];
+  for (const name of names) {
+    try {
+      if (!navigator.permissions || !navigator.permissions.query) {
+        rows.push(row(name, '<span class="warn">Permissions API not available</span>'));
+        continue;
+      }
+      const status = await navigator.permissions.query({ name });
+      const cls = status.state === 'granted' ? 'yes' : status.state === 'denied' ? 'no' : 'warn';
+      rows.push(row(name, `<span class="${cls}">${esc(status.state)}</span>`));
+      status.onchange = () => {
+        addLog('permission', `${name} → ${status.state}`);
+        queryPermissions();
+      };
+    } catch (e) {
+      rows.push(row(name, `<span class="warn">Query failed: ${esc(e.message)}</span>`));
+    }
+  }
+  $('permTable').innerHTML = rows.join('');
+}
+
+// ── Event Log ──
+function addLog(type, detail) {
+  const el = document.createElement('div');
+  el.className = 'log-entry';
+  el.innerHTML = `<span class="log-ts">${ts()}</span><span class="log-type">${esc(type)}</span>${esc(detail)}`;
+  $('eventLog').prepend(el);
+}
+function clearLog() { $('eventLog').innerHTML = ''; }
+
+// ── Focus context capture ──
+function captureFocusContext(target) {
+  const ae = document.activeElement;
+  const sel = window.getSelection();
+  return {
+    activeElement: ae ? ae.tagName + (ae.id ? '#' + ae.id : '') : 'null',
+    targetTag: target.tagName + (target.id ? '#' + target.id : ''),
+    isContentEditable: target.isContentEditable,
+    isTextarea: target.tagName === 'TEXTAREA',
+    isInput: target.tagName === 'INPUT',
+    readOnly: target.readOnly || false,
+    disabled: target.disabled || false,
+    selectionRanges: sel ? sel.rangeCount : 0,
+    documentHasFocus: document.hasFocus(),
+    visibilityState: document.visibilityState,
+  };
+}
+
+// ── DataTransfer inspector ──
+function inspectDataTransfer(dt, source) {
+  if (!dt) return '<p class="diag-err">clipboardData / dataTransfer is null</p>';
+
+  const parts = [];
+  const diagnostics = [];
+
+  // types
+  const types = dt.types ? Array.from(dt.types) : [];
+  parts.push(`<div class="result-sub"><h4>Types (${types.length})</h4>`);
+  if (types.length === 0) {
+    parts.push('<p class="diag-warn">⚠ No types found — browser may have blocked clipboard access</p>');
+    diagnostics.push('empty-types');
+  }
+  parts.push(`<div class="mono" style="font-size:0.75rem">${types.length ? esc(JSON.stringify(types)) : '(empty)'}</div></div>`);
+
+  // getData for each type
+  if (types.length > 0) {
+    parts.push('<div class="result-sub"><h4>getData() per type</h4>');
+    for (const type of types) {
+      try {
+        const data = dt.getData(type);
+        parts.push(`<div style="margin-bottom:0.4rem"><strong class="mono">${esc(type)}</strong> (${data.length} chars)`);
+        if (data.length > 0) {
+          const preview = data.length > 500 ? data.slice(0, 500) + '…' : data;
+          parts.push(`<div class="text-preview mono">${esc(preview)}</div>`);
+          // Check for image references in HTML
+          if (type === 'text/html') {
+            if (/<img\s/i.test(data)) {
+              parts.push('<div class="diag-info">ℹ HTML contains &lt;img&gt; tag</div>');
+              const srcMatch = data.match(/src=["']([^"']+)["']/i);
+              if (srcMatch) {
+                const src = srcMatch[1];
+                if (src.startsWith('data:')) {
+                  parts.push('<div class="diag-info">ℹ Image is a data: URL</div>');
+                  parts.push(`<img src="${esc(src)}" class="blob-preview" />`);
+                } else if (src.startsWith('blob:')) {
+                  parts.push('<div class="diag-warn">⚠ Image is a blob: URL (may not be accessible)</div>');
+                } else {
+                  parts.push(`<div class="diag-info">ℹ Image src: ${esc(src.slice(0, 200))}</div>`);
+                  parts.push(`<img src="${esc(src)}" class="blob-preview" onerror="this.alt='Failed to load'" />`);
+                }
+              }
+            }
+          }
+        } else {
+          parts.push('<div class="diag-warn">⚠ getData returned empty string</div>');
+        }
+        parts.push('</div>');
+      } catch (e) {
+        parts.push(`<div><strong class="mono">${esc(type)}</strong> <span class="no">Error: ${esc(e.message)}</span></div>`);
+      }
+    }
+    parts.push('</div>');
+  }
+
+  // files
+  const files = dt.files ? Array.from(dt.files) : [];
+  parts.push(`<div class="result-sub"><h4>Files (${files.length})</h4>`);
+  if (files.length === 0 && types.some(t => t.startsWith('image/'))) {
+    parts.push('<div class="diag-warn">⚠ Image type present but no files — use items instead</div>');
+  }
+  for (const f of files) {
+    parts.push(`<div class="kv">
+      <span class="k">name</span><span class="v">${esc(f.name || '(empty)')}</span>
+      <span class="k">type</span><span class="v">${esc(f.type || '(empty)')}</span>
+      <span class="k">size</span><span class="v">${f.size.toLocaleString()} bytes${f.size === 0 ? ' <span class="warn">⚠ zero-length</span>' : ''}</span>
+      <span class="k">lastModified</span><span class="v">${f.lastModified ? new Date(f.lastModified).toISOString() : 'N/A'}</span>
+    </div>`);
+    if (f.type && f.type.startsWith('image/') && f.size > 0) {
+      renderFilePreview(f, parts);
+    }
+  }
+  parts.push('</div>');
+
+  // items
+  if (dt.items) {
+    const items = Array.from(dt.items);
+    parts.push(`<div class="result-sub"><h4>Items (${items.length})</h4>`);
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      parts.push(`<div style="margin-bottom:0.4rem"><strong>#${i}</strong>`);
+      parts.push(`<div class="kv">
+        <span class="k">kind</span><span class="v">${esc(item.kind)}</span>
+        <span class="k">type</span><span class="v">${esc(item.type)}</span>
+      </div>`);
+      if (item.kind === 'file') {
+        const file = item.getAsFile();
+        if (file) {
+          parts.push(`<div class="kv">
+            <span class="k">file.name</span><span class="v">${esc(file.name || '(empty)')}</span>
+            <span class="k">file.size</span><span class="v">${file.size.toLocaleString()} bytes${file.size === 0 ? ' <span class="warn">⚠ zero</span>' : ''}</span>
+            <span class="k">file.type</span><span class="v">${esc(file.type || '(empty)')}</span>
+          </div>`);
+          if (file.type && file.type.startsWith('image/') && file.size > 0) {
+            const placeholderId = 'img-item-' + Date.now() + '-' + i;
+            parts.push(`<div id="${placeholderId}"></div>`);
+            renderFileAsync(file, placeholderId);
+          }
+        } else {
+          parts.push('<div class="diag-warn">⚠ getAsFile() returned null</div>');
+        }
+      }
+      if (item.kind === 'string') {
+        const placeholderId = 'str-item-' + Date.now() + '-' + i;
+        parts.push(`<div id="${placeholderId}"><em style="color:#64748b">reading…</em></div>`);
+        item.getAsString(s => {
+          const el = document.getElementById(placeholderId);
+          if (el) {
+            const preview = s.length > 500 ? s.slice(0, 500) + '…' : s;
+            el.innerHTML = `<div class="text-preview mono">${esc(preview)}</div>`;
+          }
+        });
+      }
+      parts.push('</div>');
+    }
+    parts.push('</div>');
+  } else {
+    parts.push('<div class="result-sub"><h4>Items</h4><span class="no">DataTransferItemList not available</span></div>');
+    diagnostics.push('no-items');
+  }
+
+  // Diagnostics summary
+  if (types.length > 0 && !types.some(t => t.startsWith('image/'))) {
+    diagnostics.push('no-image-type');
+  }
+  if (types.includes('text/html') && !types.some(t => t.startsWith('image/'))) {
+    diagnostics.push('html-only');
+  }
+
+  if (diagnostics.length > 0) {
+    parts.push('<div class="result-sub"><h4>Diagnostics</h4>');
+    if (diagnostics.includes('empty-types')) {
+      parts.push('<div class="diag-err">❌ Clipboard types array is empty. The browser blocked clipboard data access. This often happens when pasting into non-focused or non-editable elements, or in non-secure contexts.</div>');
+    }
+    if (diagnostics.includes('no-image-type')) {
+      parts.push('<div class="diag-warn">⚠ No image/* MIME type in clipboard. The copied content may not include image data, or the source app did not place image data on the clipboard.</div>');
+    }
+    if (diagnostics.includes('html-only')) {
+      parts.push('<div class="diag-warn">⚠ Only text/html present (no direct image blob). Check if the HTML contains an &lt;img&gt; tag with the image data.</div>');
+    }
+    if (diagnostics.includes('no-items')) {
+      parts.push('<div class="diag-warn">⚠ DataTransferItemList not available — this browser does not support the items API.</div>');
+    }
+    parts.push('</div>');
+  }
+
+  return parts.join('');
+}
+
+function renderFilePreview(file, parts) {
+  const placeholderId = 'fpreview-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+  parts.push(`<div id="${placeholderId}"></div>`);
+  renderFileAsync(file, placeholderId);
+}
+
+function renderFileAsync(file, placeholderId) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    const el = document.getElementById(placeholderId);
+    if (el) {
+      const img = new Image();
+      img.onload = () => {
+        el.innerHTML = `<div class="kv"><span class="k">dimensions</span><span class="v">${img.naturalWidth}×${img.naturalHeight}</span></div>` +
+          `<img src="${reader.result}" class="blob-preview" />`;
+      };
+      img.onerror = () => {
+        el.innerHTML = '<div class="diag-warn">⚠ Could not decode image</div>';
+      };
+      img.src = reader.result;
+    }
+  };
+  reader.onerror = () => {
+    const el = document.getElementById(placeholderId);
+    if (el) el.innerHTML = '<div class="diag-warn">⚠ FileReader failed</div>';
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── Result card builder ──
+let resultCounter = 0;
+
+function addResultCard(container, { eventType, targetTag, focusCtx, dtHtml, isTrusted, extraHtml }) {
+  const id = 'result-' + (++resultCounter);
+  const tagClass = eventType === 'drop' ? 'tag-drop' : 'tag-paste';
+  const targetClass = targetTag === 'TEXTAREA' ? 'tag-textarea' : 'tag-editable';
+
+  const card = document.createElement('div');
+  card.className = 'result-card';
+  card.id = id;
+  card.innerHTML = `
+    <button class="dismiss" onclick="this.parentElement.remove()" title="Dismiss">×</button>
+    <div class="result-header">
+      <span class="result-title">
+        <span class="tag ${tagClass}">${esc(eventType)}</span>
+        <span class="tag ${targetClass}">${esc(targetTag)}</span>
+        #${resultCounter}
+      </span>
+      <span class="result-time">${ts()}</span>
+    </div>
+    <div class="result-sub"><h4>Event</h4>
+      <div class="kv">
+        <span class="k">isTrusted</span><span class="v">${yn(isTrusted)}</span>
+      </div>
+    </div>
+    <div class="result-sub"><h4>Focus Context</h4>
+      <div class="kv">
+        <span class="k">activeElement</span><span class="v">${esc(focusCtx.activeElement)}</span>
+        <span class="k">target</span><span class="v">${esc(focusCtx.targetTag)}</span>
+        <span class="k">contentEditable</span><span class="v">${yn(focusCtx.isContentEditable)}</span>
+        <span class="k">textarea</span><span class="v">${yn(focusCtx.isTextarea)}</span>
+        <span class="k">readOnly</span><span class="v">${yn(!focusCtx.readOnly, focusCtx.readOnly ? 'readOnly' : 'editable')}</span>
+        <span class="k">disabled</span><span class="v">${yn(!focusCtx.disabled, focusCtx.disabled ? 'disabled' : 'enabled')}</span>
+        <span class="k">selection ranges</span><span class="v">${focusCtx.selectionRanges}</span>
+        <span class="k">document.hasFocus()</span><span class="v">${yn(focusCtx.documentHasFocus)}</span>
+        <span class="k">visibilityState</span><span class="v">${esc(focusCtx.visibilityState)}</span>
+      </div>
+    </div>
+    ${dtHtml}
+    ${extraHtml || ''}
+  `;
+  container.prepend(card);
+}
+
+// ── Paste handler ──
+function handlePaste(e) {
+  const preventDefault = $('chkPreventDefault').checked;
+  const target = e.target;
+  const focusCtx = captureFocusContext(target);
+  const targetLabel = target.id === 'pasteEditable' ? 'contenteditable' : target.tagName.toLowerCase();
+
+  addLog('paste', `target=${focusCtx.targetTag} types=${e.clipboardData ? Array.from(e.clipboardData.types).join(',') : 'null'} prevented=${preventDefault}`);
+
+  const dtHtml = inspectDataTransfer(e.clipboardData, 'paste');
+  addResultCard($('pasteResults'), {
+    eventType: 'paste',
+    targetTag: targetLabel,
+    focusCtx,
+    dtHtml,
+    isTrusted: e.isTrusted,
+  });
+
+  if (preventDefault) {
+    e.preventDefault();
+  }
+}
+
+// ── Input event handler ──
+function handleInputEvent(e) {
+  if (!$('chkLogInputEvents').checked) return;
+  const inputType = e.inputType || '(none)';
+  const hasData = e.data != null;
+  const hasDT = !!e.dataTransfer;
+
+  let detail = `inputType=${inputType}`;
+  if (hasData) detail += ` data="${String(e.data).slice(0, 50)}"`;
+  if (hasDT) {
+    const types = e.dataTransfer.types ? Array.from(e.dataTransfer.types) : [];
+    detail += ` dt.types=[${types.join(',')}]`;
+  }
+  detail += ` target=${e.target.tagName}#${e.target.id || ''}`;
+
+  addLog(e.type, detail);
+
+  // If this is a paste-related input event with a dataTransfer, show details
+  if (hasDT && (inputType === 'insertFromPaste' || inputType === 'insertFromDrop')) {
+    const focusCtx = captureFocusContext(e.target);
+    const targetLabel = e.target.id === 'pasteEditable' ? 'contenteditable' : e.target.tagName.toLowerCase();
+    const dtHtml = inspectDataTransfer(e.dataTransfer, e.type);
+    addResultCard($('pasteResults'), {
+      eventType: `${e.type} (${inputType})`,
+      targetTag: targetLabel,
+      focusCtx,
+      dtHtml,
+      isTrusted: e.isTrusted,
+      extraHtml: '<div class="diag-info">ℹ This is from the InputEvent, not the ClipboardEvent. Some browsers expose data here that is not in the paste event.</div>',
+    });
+  }
+}
+
+// ── Async Clipboard API ──
+async function readClipboardItems() {
+  const container = $('asyncResults');
+  const card = document.createElement('div');
+  card.className = 'result-card';
+
+  try {
+    if (!navigator.clipboard || !navigator.clipboard.read) {
+      card.innerHTML = '<div class="diag-err">❌ navigator.clipboard.read() is not available</div>';
+      container.prepend(card);
+      addLog('clipboard.read', 'API not available');
+      return;
+    }
+
+    const items = await navigator.clipboard.read();
+    addLog('clipboard.read', `Success: ${items.length} item(s)`);
+
+    let html = `<div class="result-header">
+      <span class="result-title"><span class="tag tag-paste">clipboard.read()</span></span>
+      <span class="result-time">${ts()}</span>
+    </div>`;
+    html += `<button class="dismiss" onclick="this.parentElement.remove()">×</button>`;
+    html += `<div class="result-sub"><h4>ClipboardItems (${items.length})</h4></div>`;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const types = item.types ? Array.from(item.types) : [];
+      html += `<div class="result-sub"><h4>Item #${i} — types: ${esc(JSON.stringify(types))}</h4>`;
+
+      for (const type of types) {
+        try {
+          const blob = await item.getType(type);
+          html += `<div style="margin-bottom:0.4rem"><strong class="mono">${esc(type)}</strong>`;
+          html += `<div class="kv">
+            <span class="k">blob.size</span><span class="v">${blob.size.toLocaleString()} bytes${blob.size === 0 ? ' <span class="warn">⚠ zero</span>' : ''}</span>
+            <span class="k">blob.type</span><span class="v">${esc(blob.type)}</span>
+          </div>`;
+
+          if (type.startsWith('image/') && blob.size > 0) {
+            const url = URL.createObjectURL(blob);
+            const img = new Image();
+            await new Promise((resolve) => {
+              img.onload = resolve;
+              img.onerror = resolve;
+              img.src = url;
+            });
+            if (img.naturalWidth) {
+              html += `<div class="kv"><span class="k">dimensions</span><span class="v">${img.naturalWidth}×${img.naturalHeight}</span></div>`;
+            }
+            html += `<img src="${url}" class="blob-preview" />`;
+          } else if (type.startsWith('text/') && blob.size > 0 && blob.size < 50000) {
+            const text = await blob.text();
+            const preview = text.length > 500 ? text.slice(0, 500) + '…' : text;
+            html += `<div class="text-preview mono">${esc(preview)}</div>`;
+            if (type === 'text/html' && /<img\s/i.test(text)) {
+              html += '<div class="diag-info">ℹ HTML contains &lt;img&gt; tag</div>';
+            }
+          }
+          html += '</div>';
+        } catch (e) {
+          html += `<div><strong class="mono">${esc(type)}</strong> <span class="no">Error: ${esc(e.message)}</span></div>`;
+        }
+      }
+      html += '</div>';
+    }
+
+    html += `<div class="result-sub"><h4>Context</h4>
+      <div class="kv">
+        <span class="k">secureContext</span><span class="v">${yn(window.isSecureContext)}</span>
+        <span class="k">topLevel</span><span class="v">${yn(window.top === window)}</span>
+        <span class="k">document.hasFocus()</span><span class="v">${yn(document.hasFocus())}</span>
+      </div>
+    </div>`;
+
+    card.innerHTML = html;
+    container.prepend(card);
+
+  } catch (e) {
+    card.innerHTML = `<div class="result-header">
+      <span class="result-title"><span class="tag tag-paste">clipboard.read()</span> FAILED</span>
+      <span class="result-time">${ts()}</span>
+    </div>
+    <button class="dismiss" onclick="this.parentElement.remove()">×</button>
+    <div class="diag-err">❌ ${esc(e.name)}: ${esc(e.message)}</div>
+    <div class="result-sub"><h4>Error Details</h4>
+      <div class="kv">
+        <span class="k">name</span><span class="v">${esc(e.name)}</span>
+        <span class="k">message</span><span class="v">${esc(e.message)}</span>
+        <span class="k">secureContext</span><span class="v">${yn(window.isSecureContext)}</span>
+        <span class="k">topLevel</span><span class="v">${yn(window.top === window)}</span>
+        <span class="k">document.hasFocus()</span><span class="v">${yn(document.hasFocus())}</span>
+      </div>
+    </div>`;
+    container.prepend(card);
+    addLog('clipboard.read', `Error: ${e.name}: ${e.message}`);
+  }
+}
+
+async function readClipboardText() {
+  const container = $('asyncResults');
+  const card = document.createElement('div');
+  card.className = 'result-card';
+
+  try {
+    if (!navigator.clipboard || !navigator.clipboard.readText) {
+      card.innerHTML = '<div class="diag-err">❌ navigator.clipboard.readText() is not available</div>';
+      container.prepend(card);
+      addLog('clipboard.readText', 'API not available');
+      return;
+    }
+
+    const text = await navigator.clipboard.readText();
+    addLog('clipboard.readText', `Success: ${text.length} chars`);
+
+    const preview = text.length > 1000 ? text.slice(0, 1000) + '…' : text;
+    card.innerHTML = `<div class="result-header">
+      <span class="result-title"><span class="tag tag-paste">clipboard.readText()</span></span>
+      <span class="result-time">${ts()}</span>
+    </div>
+    <button class="dismiss" onclick="this.parentElement.remove()">×</button>
+    <div class="kv">
+      <span class="k">length</span><span class="v">${text.length.toLocaleString()} chars</span>
+    </div>
+    <div class="text-preview mono">${esc(preview)}</div>`;
+    container.prepend(card);
+  } catch (e) {
+    card.innerHTML = `<div class="result-header">
+      <span class="result-title"><span class="tag tag-paste">clipboard.readText()</span> FAILED</span>
+      <span class="result-time">${ts()}</span>
+    </div>
+    <button class="dismiss" onclick="this.parentElement.remove()">×</button>
+    <div class="diag-err">❌ ${esc(e.name)}: ${esc(e.message)}</div>`;
+    container.prepend(card);
+    addLog('clipboard.readText', `Error: ${e.name}: ${e.message}`);
+  }
+}
+
+// ── Drop handler ──
+function handleDrop(e) {
+  e.preventDefault();
+  $('dropZone').classList.remove('dragover');
+  const focusCtx = captureFocusContext(e.target);
+  addLog('drop', `types=${e.dataTransfer ? Array.from(e.dataTransfer.types).join(',') : 'null'}`);
+
+  const dtHtml = inspectDataTransfer(e.dataTransfer, 'drop');
+  addResultCard($('dropResults'), {
+    eventType: 'drop',
+    targetTag: 'drop-zone',
+    focusCtx,
+    dtHtml,
+    isTrusted: e.isTrusted,
+  });
+}
+
+// ── Clear ──
+function clearResults() {
+  $('pasteResults').innerHTML = '';
+  $('asyncResults').innerHTML = '';
+  $('dropResults').innerHTML = '';
+}
+
+// ── Init ──
+function init() {
+  populateEnv();
+  populateApi();
+  queryPermissions();
+
+  // Paste listeners on both targets
+  const targets = [$('pasteTextarea'), $('pasteEditable')];
+  for (const target of targets) {
+    target.addEventListener('paste', handlePaste);
+    target.addEventListener('beforeinput', handleInputEvent);
+    target.addEventListener('input', handleInputEvent);
+  }
+
+  // Also listen on document for global clipboard events
+  for (const evt of ['copy', 'cut']) {
+    document.addEventListener(evt, e => {
+      const types = e.clipboardData ? Array.from(e.clipboardData.types) : [];
+      addLog(evt, `target=${e.target.tagName} types=[${types.join(',')}]`);
+    });
+  }
+
+  // Drop zone
+  const dz = $('dropZone');
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+  dz.addEventListener('drop', handleDrop);
+
+  // Log focus/blur/visibility changes
+  document.addEventListener('visibilitychange', () => addLog('visibility', document.visibilityState));
+  window.addEventListener('focus', () => addLog('window', 'focus'));
+  window.addEventListener('blur', () => addLog('window', 'blur'));
+
+  addLog('init', `Clipboard Doctor loaded — ${navigator.userAgent.slice(0, 80)}`);
+}
+
+init();
+</script>
+
+</body>
+</html>
